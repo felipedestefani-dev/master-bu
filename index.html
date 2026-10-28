@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Master Bu</title>
+  <meta name="description" content="Cartas avulsas e produtos lacrados de Pokémon TCG. A compra segue no WhatsApp." />
+  <link rel="icon" href="/assets/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/store.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="logo" href="#/"><img src="/assets/logo.png" alt="Master Bu" width="112" height="96" /></a>
+    <form class="find" role="search">
+      <label class="sr" for="q">Buscar por nome ou número</label>
+      <input id="q" name="q" type="search" placeholder="Buscar por nome ou número" autocomplete="off" enterkeyhint="search" />
+      <label class="sr" for="colecao">Coleção</label>
+      <select id="colecao" name="colecao">
+        <option value="">Todas as coleções</option>
+      </select>
+    </form>
+    <nav class="nav" id="nav" aria-label="Loja">
+      <a href="#/"><img src="/assets/icons/home.png" alt="" width="22" height="22" />Início</a>
+      <a href="#/avulsos"><img src="/assets/icons/cards.png" alt="" width="22" height="22" />Avulsos</a>
+      <a href="#/prevenda"><img src="/assets/icons/presale.png" alt="" width="22" height="22" />Pré-venda</a>
+      <a href="#/lacrados"><img src="/assets/icons/sealed.png" alt="" width="22" height="22" />Lacrados</a>
+      <a href="#/colecoes"><img src="/assets/icons/sets.png" alt="" width="22" height="22" />Coleções</a>
+      <a href="#/contato"><img src="/assets/icons/contact.png" alt="" width="22" height="22" />Contato</a>
+    </nav>
+  </header>
+  <main id="conteudo"><p class="lede">Carregando a vitrine…</p></main>
+  <footer class="foot">
+    <strong>Master Bu</strong>
+    <span>MASTER BU LTDA · CNPJ 68.524.572/0001-03</span>
+    <span>Arthur Malvesi e João Vitor de Souza</span>
+    <nav aria-label="Institucional">
+      <a href="https://www.instagram.com/masterbubr/">Instagram</a>
+      <a href="#/contato">Contato</a>
+      <a href="#/sobre">Sobre</a>
+      <a href="#/privacidade">Privacidade</a>
+      <a href="#/cookies">Cookies</a>
+      <a href="#/envio">Envio</a>
+      <a href="#/trocas">Trocas</a>
+      <a href="#/reembolso">Reembolso</a>
+    </nav>
+  </footer>
+  <div id="cookies" class="cookies" hidden></div>
+  <script type="module" src="/js/store.js?v=2"></script>
+</body>
+</html>

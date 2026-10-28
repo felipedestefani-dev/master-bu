@@ -1,0 +1,250 @@
+:root {
+  --ink: #171717;
+  --muted: #6d6d6d;
+  --line: #ececec;
+  --soft: #f6f6f6;
+  --orange: #e85d04;
+  --orange-dark: #c44b02;
+  --white: #fff;
+  --radius: 10px;
+  color: var(--ink);
+  background: var(--white);
+  font-family: Manrope, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; padding-bottom: 88px; }
+a { color: var(--orange); text-decoration: none; }
+a:hover { color: var(--orange-dark); }
+img { max-width: 100%; }
+button, input, select { font: inherit; color: inherit; }
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+  padding: 16px 24px;
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+}
+.logo { display: flex; }
+.logo img {
+  width: auto;
+  height: 96px;
+  object-fit: contain;
+}
+.find {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.find input, .find select, .field input, .field select, .field textarea {
+  width: 100%;
+  border: 0;
+  background: var(--soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  min-height: 44px;
+}
+.find input { flex: 1 1 180px; min-width: 0; }
+.find select { flex: 0 1 220px; min-width: 140px; }
+.find input:focus, .find select:focus, .field input:focus, .field select:focus {
+  outline: 2px solid var(--orange);
+  background: var(--white);
+}
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  max-width: 100%;
+}
+.nav a {
+  color: var(--ink);
+  white-space: nowrap;
+  padding: 8px 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav img { width: 22px; height: 22px; object-fit: contain; }
+.nav a[aria-current="page"] { color: var(--orange); }
+
+main {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 36px 0 72px;
+}
+.lede { color: var(--muted); margin: 0 0 28px; max-width: 42rem; }
+h1, h2, h3 { font-weight: 650; letter-spacing: -0.02em; margin: 0; }
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1.35rem; }
+
+.hero { margin-bottom: 28px; }
+.hero-rotator { position: relative; }
+.hero-rotator a { display: none; }
+.hero-rotator a.is-on { display: block; }
+.hero-rotator img {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--soft);
+}
+.hero-dots { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.hero-dots button {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 99px;
+  background: #ddd;
+  padding: 0;
+}
+.hero-dots button.is-on { background: var(--orange); width: 22px; }
+
+.shortcuts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0 0 36px; }
+.shortcuts a { font-weight: 650; }
+
+.shelf { margin-top: 48px; }
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 28px 18px;
+}
+.card { display: flex; flex-direction: column; min-width: 0; }
+.shot {
+  aspect-ratio: 3 / 4;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+}
+.shot img { max-height: 100%; object-fit: contain; }
+.card h3 { font-size: 1rem; font-weight: 650; }
+.meta, .qty, .empty, .note { color: var(--muted); }
+.meta, .qty { margin: 4px 0 0; font-size: 0.92rem; }
+.price { color: var(--orange); font-weight: 700; margin: 8px 0 12px; font-size: 1.05rem; }
+.buy, .solid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--orange);
+  color: var(--white);
+  font-weight: 700;
+  cursor: pointer;
+}
+.buy { width: 100%; margin-top: auto; }
+a.buy:hover, .solid:hover { background: var(--orange-dark); color: var(--white); }
+.buy:disabled, .solid:disabled { background: #ccc; cursor: not-allowed; }
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(220px, 360px) 1fr;
+  gap: 40px;
+  align-items: start;
+}
+.detail .shot { aspect-ratio: auto; }
+.detail .shot img { width: 100%; }
+.specs { width: 100%; border-collapse: collapse; margin: 18px 0 22px; }
+.specs th, .specs td { text-align: left; padding: 8px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+.specs th { color: var(--muted); font-weight: 500; width: 38%; }
+.detail .buy { width: auto; min-width: 180px; }
+
+.back { display: inline-block; margin-bottom: 18px; }
+
+.sets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+}
+.set-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: var(--ink);
+  padding: 8px 0;
+}
+.set-card img { width: 72px; height: 36px; object-fit: contain; }
+.set-card strong { display: block; }
+.set-card span { color: var(--muted); font-size: 0.92rem; }
+
+.prose { max-width: 40rem; }
+.prose p { margin: 0 0 14px; }
+.contact-list { list-style: none; padding: 0; margin: 18px 0 0; }
+.contact-list li { margin: 10px 0; }
+
+.foot {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: grid;
+  gap: 8px;
+}
+.foot nav { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.foot a { color: var(--muted); }
+.foot a:hover { color: var(--orange); }
+.foot strong { color: var(--ink); font-weight: 650; }
+
+.cookies {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--white);
+  border-top: 1px solid var(--line);
+}
+.cookies p { margin: 0; max-width: 46rem; }
+.cookies div { display: flex; gap: 8px; }
+.ghost {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  border: 0;
+  background: var(--soft);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .top { padding: 12px 16px; }
+  .logo img { height: 72px; }
+  .find { flex-basis: 100%; order: 3; flex-direction: column; }
+  .find input, .find select { width: 100%; max-width: none; flex: none; }
+  .detail { grid-template-columns: 1fr; gap: 18px; }
+  main { width: min(1120px, calc(100% - 24px)); padding-top: 24px; }
+}
