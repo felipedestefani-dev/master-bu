@@ -104,7 +104,8 @@ function cardHtml(product) {
       <a href="#/item/${esc(encodeURIComponent(product.id))}">
         ${shot(product)}
         <h3>${esc(product.name)}</h3>
-        <p class="meta">${langMark(product.lang)} · ${esc(set.name)}${number}</p>
+        <p class="marks">${FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : ""}<span class="grade">${esc(product.condition || "—")}</span></p>
+        <p class="meta">${esc(set.name)}${number}</p>
         <p class="qty">${esc(qty)}</p>
         <p class="price">${esc(priceLabel(product))}</p>
       </a>
@@ -158,6 +159,18 @@ function chosenSetId() {
   return "";
 }
 
+const PRESALE_ORDER = ["me6-triple", "me6-quad", "me6-box", "me6-combo", "me6-etb"];
+
+function sortPresale(items) {
+  return items.slice().sort((a, b) => {
+    const rank = (id) => {
+      const index = PRESALE_ORDER.indexOf(id);
+      return index < 0 ? PRESALE_ORDER.length : index;
+    };
+    return rank(a.id) - rank(b.id);
+  });
+}
+
 function filtered(kind) {
   const setId = chosenSetId();
   return filterProducts(products, { kind, setId, fields: "store" }).filter((product) => !kind || kind === "all" || displayKind(product) === kind);
@@ -168,7 +181,7 @@ function home() {
   const list = products.filter((product) => !setId || product.set_id === setId);
   const alta = list.filter((product) => displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price));
   const avulsos = list.filter((product) => displayKind(product) === "single");
-  const prevenda = list.filter((product) => displayKind(product) === "presale");
+  const prevenda = sortPresale(list.filter((product) => displayKind(product) === "presale"));
   const lacrados = list.filter((product) => displayKind(product) === "sealed");
   document.title = "Master Bu";
   const tabs = [
@@ -283,7 +296,7 @@ function render() {
     }
   } else if (name === "alta") main.innerHTML = page("Em alta", "Cartas a partir de R$ 200.", grid(products.filter((product) => (!chosenSetId() || product.set_id === chosenSetId()) && displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price))));
   else if (name === "avulsos") main.innerHTML = page("Avulsos", "Cartas soltas.", grid(filtered("single")));
-  else if (name === "prevenda") main.innerHTML = page("Pré-venda", "Itens para reservar.", grid(filtered("presale")));
+  else if (name === "prevenda") main.innerHTML = page("Pré-venda", "Reinado Delta", grid(sortPresale(filtered("presale"))));
   else if (name === "lacrados") main.innerHTML = page("Lacrados", "Booster, caixa e coleção fechada.", grid(filtered("sealed")));
   else if (name === "colecoes") main.innerHTML = setsPage();
   else if (name === "home") main.innerHTML = home();

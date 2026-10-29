@@ -3,7 +3,7 @@ export const SUPABASE_URL = "https://khqbsdgmtryaiodlsxmh.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWJzZGdtdHJ5YWlvZGxzeG1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDg0NzUsImV4cCI6MjEwODc4NDQ3NX0.fOjaRHR-xjFheKvAiUbLYWMNhpGMSGai536gpvMGfgA";
 
 /** Único lugar do WhatsApp da loja. Só dígitos, com DDI. Exemplo: 5511999999999 */
-export const WHATSAPP_PHONE = "5511964400390";
+export const WHATSAPP_PHONE = "5511939326547";
 
 export const STORE = {
   name: "Master Bu",

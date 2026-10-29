@@ -291,6 +291,6 @@ test("schema cobre RLS, sentinela e a chave anon", () => {
   assert.match(config, /khqbsdgmtryaiodlsxmh/);
   assert.match(sql, /public\.tabs/);
   assert.match(sql, /leitura publica tabs/);
-  assert.match(config, /WHATSAPP_PHONE = "5511964400390"/);
+  assert.match(config, /WHATSAPP_PHONE = "5511939326547"/);
   assert.doesNotMatch(config, /"role":"service_role"/);
 });
