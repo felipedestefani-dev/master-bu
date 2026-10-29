@@ -133,6 +133,8 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
     ] : [],
   });
   assert.equal(items.find((item) => item.productId === "sv8pt5-therastal").name, "Box Therastal Evoluções Prismáticas");
+  assert.equal(items.find((item) => item.productId === "sv8pt5-therastal").label, "BB");
+  assert.equal(sealedKind("Box Therastal Evoluções Prismáticas"), "BB");
   assert.equal(items.find((item) => item.productId === 9).label, "BB");
   const draft = sealedDraft(items.find((item) => item.productId === 9), { finish: "Normal" });
   assert.equal(draft.id, "sealed-9");

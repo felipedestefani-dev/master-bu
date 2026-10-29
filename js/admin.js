@@ -2,7 +2,7 @@ import { client } from "/js/supabase.js";
 import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, masterPhoto, productImage, sanitizeImage } from "/lib/image.mjs?v=3";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
-import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=3";
+import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=4";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
 import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
@@ -681,7 +681,7 @@ async function runSealedSearch(text) {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "Falha ao consultar os lacrados.");
     editor.sealed = payload.items || [];
-    if (!editor.sealed.some((item) => item.label === editor.sealedType)) editor.sealedType = "Todos";
+    editor.sealedType = "Todos";
     paintSealed();
   } catch (error) {
     box.innerHTML = `<p class="muted">${esc(error.message)}</p>`;
