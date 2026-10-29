@@ -111,7 +111,8 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(sealedKind("Mini Booster Box Reinado Delta"), "Mini BB");
   assert.equal(sealedKind("Mini BB Caos Ascendente"), "Mini BB");
   assert.equal(sealedKind("Coleção Treinador Avan. Equilíbrio Perfeito"), "ETB");
-  assert.equal(sealedKind("UPC Mega Charizard X ex"), "UPC");
+  assert.equal(sealedKind("UPC Mega Charizard X ex"), "ETB");
+  assert.equal(labelOf("Mega Evolution Ultra-Premium Collection"), "ETB");
   assert.ok(needles("Therastal").includes("prismatic evolutions"));
   assert.ok(needles("Reinado Delta").includes("delta reign"));
   assert.equal(matchesProduct("Mega Charizard Tin (Mega Charizard Y)", "Box Mega Charizard Y"), true);
