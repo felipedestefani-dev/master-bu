@@ -16,6 +16,7 @@ import { buildTab, publicTabs, reorderTabs } from "../lib/tabs.mjs";
 import { handleTcg } from "../lib/tcg-proxy.mjs";
 import { safeSearch } from "../lib/text.mjs";
 import { buildVisit, summarizeVisits, visitBounds } from "../lib/visits.mjs";
+import { catalogShelves, shelvesFromProducts, shelvesToBanners, visibleShelves } from "../lib/shelves.mjs";
 import { sealedDraft } from "../lib/sealed-draft.mjs";
 
 const charizard = {
@@ -328,6 +329,33 @@ test("foto enviada vira JPEG com o maior lado em 900", () => {
   const decoded = jpeg.decode(Buffer.from(output.slice("data:image/jpeg;base64,".length), "base64"));
   assert.equal(decoded.width, 900);
   assert.ok(decoded.height < 20);
+});
+
+test("abas do catálogo guardam nome, ordem e produtos", () => {
+  const products = [
+    { id: "sealed-etb", kind: "sealed", name: "Coleção Treinador Avan. Escuridão Absoluta", set_id: "me5" },
+    { id: "sealed-bb", kind: "sealed", name: "Booster Box Reinado Delta", set_id: "me6" },
+    { id: "sealed-mini", kind: "sealed", name: "Mini BB Reinado Delta", set_id: "me6" },
+    { id: "card-1", kind: "single", name: "Pikachu", set_id: "me5" },
+  ];
+  const seeded = shelvesFromProducts(products);
+  assert.deepEqual(seeded.map((shelf) => shelf.label), ["ETB", "Reinado Delta"]);
+  assert.deepEqual(seeded[1].productIds, ["sealed-bb", "sealed-mini"]);
+  const edited = [
+    { id: "reinadodelta", label: "Reinado Delta", productIds: ["sealed-bb", "sealed-mini", "card-1"] },
+    { id: "etb", label: "Caixas ETB", productIds: ["sealed-etb"] },
+  ];
+  const rows = shelvesToBanners(edited);
+  assert.equal(rows[0].id, "aba-reinadodelta");
+  assert.equal(rows[0].label, "Reinado Delta");
+  assert.ok(rows.every((row) => row.id.length <= 80));
+  const back = catalogShelves(rows);
+  assert.deepEqual(back.map((shelf) => shelf.label), ["Reinado Delta", "Caixas ETB"]);
+  assert.deepEqual(back[0].productIds, ["sealed-bb", "sealed-mini", "card-1"]);
+  const shown = visibleShelves(products, rows);
+  assert.equal(shown[0].items.length, 3);
+  assert.equal(shown[1].label, "Caixas ETB");
+  assert.equal(visibleShelves([...products, { id: "sealed-extra", kind: "sealed", name: "Blister Unitário Escuridão Absoluta", set_id: "me5" }], rows).at(-1).label, "Outros");
 });
 
 test("abas da loja entram, saem e mudam de lugar", () => {

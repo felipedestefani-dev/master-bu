@@ -173,6 +173,12 @@ body { background: #f4f4f5; }
 .preview.logo-preview { width: 180px; height: 72px; object-fit: contain; background: var(--white); }
 .banner-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .banner-row img { width: 120px; height: 64px; object-fit: cover; border-radius: 8px; }
+.shelf-block { display: grid; gap: 10px; margin: 14px 0; padding: 14px; background: var(--white); border-radius: 16px; }
+.shelf-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shelf-head input { flex: 1 1 180px; }
+.shelf-products { display: grid; gap: 4px; max-height: 240px; overflow: auto; }
+.check { display: flex; align-items: center; gap: 8px; }
+.check input { width: 18px; min-height: 18px; flex: none; }
 .tab-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .tab-row img { width: 28px; height: 28px; object-fit: contain; }
 .tab-row .actions { margin-left: auto; }

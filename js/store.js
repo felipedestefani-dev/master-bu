@@ -9,7 +9,7 @@ import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
 import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
-import { sealedShelf, shelfOrder } from "/lib/sealed-match.mjs?v=5";
+import { visibleShelves } from "/lib/shelves.mjs?v=1";
 import { esc, safeSearch, slugId } from "/lib/text.mjs";
 
 const main = document.getElementById("conteudo");
@@ -150,26 +150,16 @@ function byPrice(items) {
 }
 
 function sealedShelves(list, prefix) {
-  const groups = new Map();
-  for (const product of list) {
-    const kind = sealedShelf(product);
-    if (!groups.has(kind)) groups.set(kind, []);
-    groups.get(kind).push(product);
-  }
-  const order = shelfOrder();
-  const html = [...groups.keys()]
-    .sort((a, b) => {
-      const left = order.indexOf(a);
-      const right = order.indexOf(b);
-      return (left < 0 ? order.length : left) - (right < 0 ? order.length : right);
-    })
-    .map((kind) => shelf(`${prefix}-${slugId(kind, 24).toLowerCase() || "outros"}`, kind, byPrice(groups.get(kind))))
+  const html = visibleShelves(list, banners)
+    .map((group) => shelf(`${prefix}-${group.id || "outros"}`, group.label, byPrice(group.items)))
     .join("");
   return { html };
 }
 
 function lacradosPage() {
-  const { html } = sealedShelves(filtered("sealed"), "lacrados");
+  const setId = chosenSetId();
+  const list = products.filter((product) => !setId || product.set_id === setId);
+  const { html } = sealedShelves(list, "lacrados");
   return page("Lacrados", "Booster, caixa e coleção fechada.", html || `<p class="empty">Nenhum item por aqui.</p>`);
 }
 
@@ -225,7 +215,7 @@ function home() {
   const list = products.filter((product) => !setId || product.set_id === setId);
   const alta = list.filter((product) => displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price));
   const avulsos = byPrice(list.filter((product) => displayKind(product) === "single"));
-  const sealed = sealedShelves(list.filter((product) => displayKind(product) === "sealed"), "loja");
+  const sealed = sealedShelves(list, "loja");
   const masters = byPrice(list.filter((product) => displayKind(product) === "master"));
   document.title = "Master Bu";
   const prevenda = sortPresale(list.filter((product) => displayKind(product) === "presale"));

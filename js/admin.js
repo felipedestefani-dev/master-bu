@@ -5,6 +5,7 @@ import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=4";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
 import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
+import { catalogShelves, shelfKey, shelvesFromProducts, shelvesToBanners } from "/lib/shelves.mjs?v=1";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
 import { SET_PT } from "/lib/official-sets.mjs";
 import { bindSetLogos, setLogoSrc } from "/js/set-logo.js";
@@ -35,6 +36,7 @@ let setEditing = null;
 let bannerEditing = null;
 let bannerImage = "";
 let tabEditing = null;
+let shelfDraft = null;
 let searchToken = 0;
 let searchTimer = 0;
 
@@ -285,24 +287,41 @@ function bannersView() {
     <div>${rows || `<p class="muted">Nenhum banner ainda.</p>`}</div>`);
 }
 
+function catalogShelfList() {
+  if (shelfDraft) return shelfDraft;
+  const saved = catalogShelves(banners);
+  return saved.length ? saved : shelvesFromProducts(products);
+}
+
 function tabsView() {
-  const list = tabs.slice().sort((a, b) => Number(a.sort) - Number(b.sort) || String(a.label).localeCompare(String(b.label), "pt"));
-  const rows = list.map((tab) => `
-    <div class="tab-row">
-      <img src="${esc(tab.icon)}" alt="" />
-      <div><strong>${esc(tab.label)}</strong><p class="muted">${esc(tab.href)}</p></div>
-      <div class="actions">
-        <button class="ghost" type="button" data-tab-move="${esc(tab.id)}" data-dir="-1">Subir</button>
-        <button class="ghost" type="button" data-tab-move="${esc(tab.id)}" data-dir="1">Descer</button>
-        <button class="ghost" type="button" data-tab="${esc(tab.id)}">Editar</button>
-        <button class="ghost danger" type="button" data-tab-remove="${esc(tab.id)}">Apagar</button>
+  const list = catalogShelfList();
+  const catalog = products.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "pt"));
+  const rows = list.map((shelf) => `
+    <section class="shelf-block" data-shelf="${esc(shelf.id)}">
+      <div class="shelf-head">
+        <input data-shelf-name value="${esc(shelf.label)}" maxlength="40" aria-label="Nome da aba" />
+        <div class="actions">
+          <button class="ghost" type="button" data-shelf-move="${esc(shelf.id)}" data-dir="-1">Subir</button>
+          <button class="ghost" type="button" data-shelf-move="${esc(shelf.id)}" data-dir="1">Descer</button>
+          <button class="ghost danger" type="button" data-shelf-remove="${esc(shelf.id)}">Apagar</button>
+        </div>
       </div>
-    </div>`).join("");
-  const note = tabsError ? `<p class="msg">${esc(tabsError)}</p>` : "";
+      <div class="shelf-products">
+        ${catalog.map((product) => `
+          <label class="check">
+            <input type="checkbox" data-shelf-product="${esc(product.id)}"${shelf.productIds.includes(product.id) ? " checked" : ""} />
+            <span>${esc(product.name)}</span>
+          </label>`).join("") || `<p class="muted">Nenhum produto cadastrado.</p>`}
+      </div>
+    </section>`).join("");
   return shell("Abas", `
-    ${note}
-    <button class="solid" type="button" id="add-tab">Adicionar aba</button>
-    <div>${rows || `<p class="muted">Nenhuma aba ainda. A loja mostra as abas padrão até você salvar a primeira.</p>`}</div>`);
+    <p class="muted">Essas abas aparecem no catálogo. Mude o nome, a ordem e marque os produtos de cada uma. O que ficar sem aba aparece em Outros.</p>
+    <div class="actions">
+      <button class="solid" type="button" id="add-shelf">Adicionar aba</button>
+      <button class="solid" type="button" id="save-shelves">Salvar abas</button>
+    </div>
+    <label>Buscar produto<input id="shelf-q" type="search" placeholder="Nome do produto" autocomplete="off" /></label>
+    <div id="shelf-editor">${rows || `<p class="muted">Nenhuma aba ainda.</p>`}</div>`);
 }
 
 function visitsView() {
@@ -862,6 +881,41 @@ async function moveBanner(id, dir) {
   await reload();
 }
 
+function takeShelves() {
+  const live = [...document.querySelectorAll("[data-shelf]")];
+  if (!live.length) return catalogShelfList().map((shelf) => ({ ...shelf, productIds: [...shelf.productIds] }));
+  return live.map((block) => ({
+    id: block.dataset.shelf,
+    label: block.querySelector("[data-shelf-name]")?.value || "",
+    productIds: [...block.querySelectorAll("[data-shelf-product]:checked")].map((box) => box.dataset.shelfProduct),
+  }));
+}
+
+async function saveShelves() {
+  const list = takeShelves();
+  shelfDraft = list;
+  if (list.some((shelf) => !String(shelf.label || "").trim())) {
+    message = "Dê um nome a cada aba.";
+    render();
+    return;
+  }
+  const next = shelvesToBanners(list);
+  const old = banners.filter((row) => row.scroll === "aba" || row.scroll === "abi");
+  const keep = new Set(next.map((row) => row.id));
+  const remove = old.map((row) => row.id).filter((id) => !keep.has(id));
+  if (next.length) {
+    const { error } = await sb.from("banners").upsert(next);
+    if (error) { message = error.message; render(); return; }
+  }
+  if (remove.length) {
+    const { error } = await sb.from("banners").delete().in("id", remove);
+    if (error) { message = error.message; render(); return; }
+  }
+  message = "Abas salvas.";
+  shelfDraft = null;
+  await reload();
+}
+
 async function saveTab(event) {
   event.preventDefault();
   const form = new FormData(event.target);
@@ -988,6 +1042,32 @@ app.addEventListener("click", async (event) => {
   if (bannerRemove) { await removeBanner(bannerRemove.dataset.bannerRemove); return; }
   const move = event.target.closest("[data-banner-move]");
   if (move) { await moveBanner(move.dataset.bannerMove, Number(move.dataset.dir)); return; }
+  if (event.target.id === "add-shelf") {
+    const list = takeShelves();
+    list.push({ id: shelfKey(`aba${Date.now().toString(36)}`), label: "Nova aba", productIds: [] });
+    shelfDraft = list;
+    render();
+    return;
+  }
+  if (event.target.id === "save-shelves") { await saveShelves(); return; }
+  const shelfRemove = event.target.closest("[data-shelf-remove]");
+  if (shelfRemove) {
+    shelfDraft = takeShelves().filter((shelf) => shelf.id !== shelfRemove.dataset.shelfRemove);
+    render();
+    return;
+  }
+  const shelfMove = event.target.closest("[data-shelf-move]");
+  if (shelfMove) {
+    const list = takeShelves();
+    const index = list.findIndex((shelf) => shelf.id === shelfMove.dataset.shelfMove);
+    const next = index + Number(shelfMove.dataset.dir);
+    if (index < 0 || next < 0 || next >= list.length) return;
+    const [row] = list.splice(index, 1);
+    list.splice(next, 0, row);
+    shelfDraft = list;
+    render();
+    return;
+  }
   if (event.target.id === "add-tab") { editor = null; bannerEditing = null; tabEditing = "new"; render(); return; }
   if (event.target.id === "tab-cancel") { tabEditing = null; render(); return; }
   const tab = event.target.closest("[data-tab]");
@@ -1036,9 +1116,22 @@ app.addEventListener("input", (event) => {
     const value = event.target.value;
     searchTimer = setTimeout(() => runSealedSearch(value), 300);
   }
+  if (event.target.id === "shelf-q") {
+    const query = event.target.value.trim().toLocaleLowerCase("pt");
+    document.querySelectorAll(".shelf-products .check").forEach((row) => {
+      row.hidden = Boolean(query) && !row.textContent.toLocaleLowerCase("pt").includes(query);
+    });
+  }
 });
 
 app.addEventListener("change", async (event) => {
+  if (event.target.matches("[data-shelf-product]") && event.target.checked) {
+    const id = event.target.dataset.shelfProduct;
+    document.querySelectorAll(`[data-shelf-product="${CSS.escape(id)}"]`).forEach((box) => {
+      if (box !== event.target) box.checked = false;
+    });
+    return;
+  }
   if (event.target.id === "stock-kind") { stockKind = event.target.value; render(); return; }
   if (event.target.id === "stock-level") { stockLevel = event.target.value; render(); return; }
   if (event.target.id === "visit-from" || event.target.id === "visit-to") {
