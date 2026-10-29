@@ -108,9 +108,16 @@ function inventoryRows() {
 
 function productRows(list) {
   if (!list.length) return `<p class="muted">Nenhum item.</p>`;
-  return list.map((product) => `
-    <div class="row">
-      ${product.image ? `<img class="thumb" alt="" src="${esc(product.image)}" data-card />` : `<span class="thumb"></span>`}
+  return list.map((product) => {
+    const master = displayKind(product) === "master";
+    const logo = master ? setLogoSrc(product.set_id) : "";
+    const photo = master ? "" : productImage(product);
+    const thumb = master
+      ? (logo ? `<img class="thumb" alt="" src="${esc(logo)}" data-set-logo />` : `<span class="thumb"></span>`)
+      : (photo ? `<img class="thumb" alt="" src="${esc(photo)}" data-card />` : `<span class="thumb"></span>`);
+    return `
+    <div class="row${master ? " master-row" : ""}">
+      ${thumb}
       <div><strong>${esc(product.name)}</strong><p>${LANGS.find((item) => item[0] === product.lang)?.[2] || ""} ${esc(setName(product.set_id))} · ${esc(kindLabel(product))}${product.number ? ` · ${esc(product.number)}` : ""}</p></div>
       <div class="qty-step">
         <button type="button" data-qty="-1" data-id="${esc(product.id)}" aria-label="Diminuir">−</button>
@@ -122,7 +129,8 @@ function productRows(list) {
         <button class="ghost" type="button" data-edit="${esc(product.id)}">Editar</button>
         <button class="ghost danger" type="button" data-remove="${esc(product.id)}">Apagar</button>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 function icon(name) {
@@ -326,7 +334,8 @@ function editorHtml() {
   const master = kind === "master";
   const sealed = kind !== "single";
   const p = product || { id: "", name: "", set_id: "", number: "", rarity: "", condition: master ? "Completo" : "NM", lang: "PT", finish: master ? "Master Set" : sealed ? "Lacrado" : "Normal", qty: 1, price: "" };
-  const preview = editor.image || "";
+  const logo = master ? setLogoSrc(p.set_id) : "";
+  const preview = master ? logo : (editor.image || "");
   const search = master ? "" : sealed ? `
       <label>Coleção do produto<input id="sealed-q" type="search" placeholder="Evoluções Prismáticas" autocomplete="off" /></label>
       <div id="sealed-types" class="types"></div>
@@ -340,11 +349,13 @@ function editorHtml() {
       <h2>${product ? "Editar" : master ? "Novo master set" : kind === "presale" ? "Nova pré-venda" : sealed ? "Novo lacrado" : "Nova carta"}</h2>
       <input type="hidden" name="kind" value="${kind === "single" ? "single" : kind === "presale" ? "presale" : master ? "master" : "sealed"}" />
       ${search}
-      ${preview ? `<img class="preview" id="photo-preview" alt="" src="${esc(preview)}" data-card />` : `<p class="muted" id="photo-preview">Sem foto</p>`}
-      <div class="actions">
+      ${master
+        ? (preview ? `<img class="preview logo-preview" id="photo-preview" alt="" src="${esc(preview)}" data-set-logo />` : `<p class="muted" id="photo-preview">Escolha a coleção para usar a logo.</p>`)
+        : (preview ? `<img class="preview" id="photo-preview" alt="" src="${esc(preview)}" data-card />` : `<p class="muted" id="photo-preview">Sem foto</p>`)}
+      ${master ? "" : `<div class="actions">
         <label class="ghost">Trocar a foto<input id="photo-file" type="file" accept="image/*" hidden /></label>
         <button class="ghost" type="button" id="photo-clear">Tirar foto</button>
-      </div>
+      </div>`}
       <div class="two">${field("id", "Código", p.id)}${field("name", "Nome", p.name)}</div>
       <input type="hidden" name="set_id" value="${esc(p.set_id || "")}" />
       <label>Coleção da loja<input id="set-q" type="search" placeholder="Buscar coleção" autocomplete="off" value="${esc(p.set_id ? setName(p.set_id) : "")}" /></label>
@@ -358,7 +369,7 @@ function editorHtml() {
       ${sealed ? `<input type="hidden" name="condition" value="${esc(p.condition || "NM")}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
       <div class="two">${field("qty", "Quantidade", p.qty, "number")}${field("price", "Preço", p.price === 0 || p.price ? p.price : "", "text")}</div>
       ${kind === "presale" ? `<p class="muted">Para aparecer como pré-venda, o código precisa começar com me6-.</p>` : ""}
-      ${master ? `<p class="muted">Esse master set completo entra à venda na loja. O código precisa começar com master-.</p>` : ""}
+      ${master ? `<p class="muted">A logo da coleção escolhida aparece na loja. O código precisa começar com master-.</p>` : ""}
       <div class="actions">
         <button class="solid" type="submit">Salvar</button>
         ${product ? `<button class="ghost" type="button" id="copy">Duplicar</button>` : ""}
@@ -501,7 +512,7 @@ function openEditor(product, kind) {
   editor = {
     product: product || null,
     kind: nextKind,
-    image: product?.image || "",
+    image: nextKind === "master" ? setLogoSrc(product?.set_id) : (product?.image || ""),
     cards: [],
     chosen: "",
     sealed: [],
@@ -528,6 +539,10 @@ function chooseSet(set) {
   document.getElementById("set-chosen").textContent = set.name;
   document.getElementById("set-q").value = set.name;
   document.getElementById("set-hits").innerHTML = "";
+  if (editor?.kind === "master") {
+    editor.image = setLogoSrc(set.id);
+    showLogoPreview(editor.image);
+  }
 }
 
 function rememberSet(set) {
@@ -539,6 +554,22 @@ function rememberSet(set) {
 
 function knownSets() {
   return sets.concat(editor?.extra || []);
+}
+
+function showLogoPreview(src) {
+  const current = document.getElementById("photo-preview");
+  if (!current) return;
+  if (!src) {
+    current.outerHTML = `<p class="muted" id="photo-preview">Escolha a coleção para usar a logo.</p>`;
+    return;
+  }
+  if (current.tagName === "IMG") {
+    current.src = src;
+    current.classList.add("logo-preview");
+    current.setAttribute("data-set-logo", "");
+    delete current.dataset.bound;
+  } else current.outerHTML = `<img class="preview logo-preview" id="photo-preview" alt="" src="${esc(src)}" data-set-logo />`;
+  bindSetLogos(document.getElementById("editor") || app);
 }
 
 function showPreview(src) {
@@ -687,7 +718,7 @@ async function saveProduct(event) {
     finish: form.get("finish"),
     qty: form.get("qty"),
     price: form.get("price"),
-    image: editor?.image || "",
+    image: kind === "master" ? setLogoSrc(form.get("set_id")) : (editor?.image || ""),
   });
   const note = document.getElementById("desk-msg");
   const fail = (text) => { message = text; if (note) note.textContent = text; };

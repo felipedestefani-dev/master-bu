@@ -9,7 +9,7 @@ import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
 import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
-import { sealedKind } from "/lib/sealed-match.mjs";
+import { LABEL_ORDER, sealedKind } from "/lib/sealed-match.mjs";
 import { esc, safeSearch, slugId } from "/lib/text.mjs";
 
 const main = document.getElementById("conteudo");
@@ -94,14 +94,19 @@ function buyButton(product, setName) {
 }
 
 function shot(product) {
-  const src = productImage(product);
   const logo = product.set_id ? setLogoSrc(product.set_id) : "";
+  if (displayKind(product) === "master") {
+    if (!logo) return `<div class="shot"></div>`;
+    return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" /></div>`;
+  }
+  const src = productImage(product);
   if (!src) {
     if (!logo) return `<div class="shot"></div>`;
     return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" /></div>`;
   }
   const fallback = logo ? ` data-fallback="${esc(logo)}"` : "";
-  return `<div class="shot"><img data-card src="${esc(src)}" alt="${esc(product.name)}" loading="lazy"${fallback} /></div>`;
+  const pack = displayKind(product) === "single" ? "" : ` class="pack${src.includes("sealed-me5-unit") ? " tight" : ""}"`;
+  return `<div class="shot"><img data-card${pack} src="${esc(src)}" alt="${esc(product.name)}" loading="lazy"${fallback} /></div>`;
 }
 
 function cardHtml(product) {
@@ -142,16 +147,22 @@ function byPrice(items) {
 }
 
 function sealedShelves(list, prefix) {
-  const etbs = byPrice(list.filter((product) => sealedKind(product.name) === "ETB"));
-  const upcs = byPrice(list.filter((product) => sealedKind(product.name) === "UPC"));
-  return {
-    etbs,
-    upcs,
-    html: [
-      etbs.length ? shelf(`${prefix}-etb`, "ETB", etbs) : "",
-      upcs.length ? shelf(`${prefix}-upc`, "UPC", upcs) : "",
-    ].join(""),
-  };
+  const groups = new Map();
+  for (const product of list) {
+    const kind = sealedKind(product.name);
+    if (!groups.has(kind)) groups.set(kind, []);
+    groups.get(kind).push(product);
+  }
+  const order = [...LABEL_ORDER, "Outros"];
+  const html = [...groups.keys()]
+    .sort((a, b) => {
+      const left = order.indexOf(a);
+      const right = order.indexOf(b);
+      return (left < 0 ? order.length : left) - (right < 0 ? order.length : right);
+    })
+    .map((kind) => shelf(`${prefix}-${slugId(kind, 24).toLowerCase() || "outros"}`, kind, byPrice(groups.get(kind))))
+    .join("");
+  return { html };
 }
 
 function lacradosPage() {
