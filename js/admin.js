@@ -122,16 +122,18 @@ function productRows(list) {
     return `
     <div class="row${master ? " master-row" : ""}">
       ${thumb}
-      <div><strong>${esc(product.name)}</strong><p>${LANGS.find((item) => item[0] === product.lang)?.[2] || ""} ${esc(setName(product.set_id))} · ${esc(kindLabel(product))}${product.number ? ` · ${esc(product.number)}` : ""}</p></div>
-      <div class="qty-step">
-        <button type="button" data-qty="-1" data-id="${esc(product.id)}" aria-label="Diminuir">−</button>
-        <b>${esc(product.qty)}</b>
-        <button type="button" data-qty="1" data-id="${esc(product.id)}" aria-label="Aumentar">+</button>
-      </div>
-      <div class="actions">
-        <strong>${esc(money(product.price))}</strong>
-        <button class="ghost" type="button" data-edit="${esc(product.id)}">Editar</button>
-        <button class="ghost danger" type="button" data-remove="${esc(product.id)}">Apagar</button>
+      <div class="row-name"><strong>${esc(product.name)}</strong><p>${LANGS.find((item) => item[0] === product.lang)?.[2] || ""} ${esc(setName(product.set_id))} · ${esc(kindLabel(product))}${product.number ? ` · ${esc(product.number)}` : ""}</p></div>
+      <div class="row-tools">
+        <div class="qty-step">
+          <button type="button" data-qty="-1" data-id="${esc(product.id)}" aria-label="Diminuir">−</button>
+          <b>${esc(product.qty)}</b>
+          <button type="button" data-qty="1" data-id="${esc(product.id)}" aria-label="Aumentar">+</button>
+          <strong class="row-price">${esc(money(product.price))}</strong>
+        </div>
+        <div class="actions">
+          <button class="ghost" type="button" data-edit="${esc(product.id)}">Editar</button>
+          <button class="ghost danger" type="button" data-remove="${esc(product.id)}">Apagar</button>
+        </div>
       </div>
     </div>`;
   }).join("");
@@ -243,10 +245,12 @@ function inventoryView() {
 function setsView() {
   const rows = sortSets(sets).map((set) => `
     <div class="row">
-      <span></span>
-      <div><strong>${esc(set.name)}</strong><p>${esc(set.code)} · ${esc(set.id)}</p></div>
-      <button class="ghost" type="button" data-set="${esc(set.id)}">Editar</button>
-      <button class="ghost danger" type="button" data-set-remove="${esc(set.id)}">Apagar</button>
+      <span class="thumb"></span>
+      <div class="row-name"><strong>${esc(set.name)}</strong><p>${esc(set.code)} · ${esc(set.id)}</p></div>
+      <div class="row-tools">
+        <button class="ghost" type="button" data-set="${esc(set.id)}">Editar</button>
+        <button class="ghost danger" type="button" data-set-remove="${esc(set.id)}">Apagar</button>
+      </div>
     </div>`).join("");
   const current = setEditing ? sets.find((set) => set.id === setEditing) : null;
   return shell("Coleções", `
@@ -262,7 +266,6 @@ function setsView() {
 function masterView() {
   const list = products.filter((product) => displayKind(product) === "master");
   return shell("Master Set", `
-    <p class="lede">Master sets completos à venda na loja. O código começa com master-.</p>
     <div class="actions">
       <button class="solid" type="button" id="add-master">Adicionar master set</button>
     </div>
@@ -274,7 +277,7 @@ function bannersView() {
   const rows = list.map((banner) => `
     <div class="banner-row">
       <img src="${esc(banner.image)}" alt="" />
-      <div><strong>${esc(banner.label)}</strong><p class="muted">${esc(banner.href)}</p></div>
+      <div class="row-name"><strong>${esc(banner.label)}</strong><p class="muted">${esc(banner.href)}</p></div>
       <div class="actions">
         <button class="ghost" type="button" data-banner-move="${esc(banner.id)}" data-dir="-1">Subir</button>
         <button class="ghost" type="button" data-banner-move="${esc(banner.id)}" data-dir="1">Descer</button>
@@ -315,7 +318,6 @@ function tabsView() {
       </div>
     </section>`).join("");
   return shell("Abas", `
-    <p class="muted">Essas abas aparecem no catálogo. Mude o nome, a ordem e marque os produtos de cada uma. O que ficar sem aba aparece em Outros.</p>
     <div class="actions">
       <button class="solid" type="button" id="add-shelf">Adicionar aba</button>
       <button class="solid" type="button" id="save-shelves">Salvar abas</button>
@@ -389,8 +391,6 @@ function editorHtml() {
       </div>
       ${sealed ? `<input type="hidden" name="condition" value="${esc(!p.condition || p.condition === "NM" ? "Lacrado" : p.condition)}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
       <div class="two">${field("qty", "Quantidade", p.qty, "number")}${field("price", "Preço", p.price === 0 || p.price ? p.price : "", "text")}</div>
-      ${kind === "presale" ? `<p class="muted">Para aparecer como pré-venda, o código precisa começar com me6-.</p>` : ""}
-      ${master ? `<p class="muted">Sem uma foto sua, a loja usa a logo da coleção. O código precisa começar com master-.</p>` : ""}
       <div class="actions">
         <button class="solid" type="submit">Salvar</button>
         ${product ? `<button class="ghost" type="button" id="copy">Duplicar</button>` : ""}
@@ -438,7 +438,6 @@ function tabFormHtml() {
       ${field("label", "Nome", row?.label || "")}
       ${field("href", "Link", row?.href || "#/")}
       <label>Ícone<select name="icon">${TAB_ICONS.map((item) => `<option value="${esc(item.src)}"${icon === item.src ? " selected" : ""}>${esc(item.label)}</option>`).join("")}</select></label>
-      <p class="muted">Use #/ para o início, #/avulsos para uma página da loja, ou um endereço https://.</p>
       <div class="actions">
         <button class="solid" type="submit">Salvar aba</button>
         <button class="ghost" type="button" id="tab-cancel">Cancelar</button>
