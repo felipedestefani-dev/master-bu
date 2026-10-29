@@ -3,10 +3,10 @@ import { legal } from "/js/legal.js";
 import { client } from "/js/supabase.js";
 import { isCardBack, productImage } from "/lib/image.mjs?v=2";
 import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
-import { displayKind, filterProducts } from "/lib/products.mjs";
+import { displayKind, filterProducts, productCondition } from "/lib/products.mjs?v=3";
 import { publicBanners } from "/lib/banners.mjs";
 import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
-import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs";
+import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
 import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
 import { LABEL_ORDER, sealedKind } from "/lib/sealed-match.mjs";
@@ -96,6 +96,9 @@ function buyButton(product, setName) {
 function shot(product) {
   const logo = product.set_id ? setLogoSrc(product.set_id) : "";
   if (displayKind(product) === "master") {
+    const saved = String(product.image || "");
+    const own = saved && saved !== logo && !/\/logo\.png(?:$|\?)/.test(saved) && !saved.endsWith("me06-logo.png");
+    if (own) return `<div class="shot"><img data-card class="pack" src="${esc(saved)}" alt="${esc(product.name)}" loading="lazy" /></div>`;
     if (!logo) return `<div class="shot"></div>`;
     return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" /></div>`;
   }
@@ -118,7 +121,7 @@ function cardHtml(product) {
       <a href="#/item/${esc(encodeURIComponent(product.id))}">
         ${shot(product)}
         <h3>${esc(product.name)}</h3>
-        <p class="marks">${FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : ""}<span class="grade">${esc(product.condition || "—")}</span></p>
+        <p class="marks">${FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : ""}<span class="grade">${esc(productCondition(product))}</span></p>
         <p class="meta">${esc(set.name)}${number}</p>
         <p class="qty">${esc(qty)}</p>
         <p class="price">${esc(priceLabel(product))}</p>
@@ -261,7 +264,7 @@ function itemPage(id) {
           <tr><th>Coleção</th><td><a class="set-link" href="#/set/${esc(encodeURIComponent(set.id))}">${set.id ? `<img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />` : ""}${esc(set.name)}</a></td></tr>
           <tr><th>Número</th><td>${esc(product.number || "—")}</td></tr>
           <tr><th>Raridade</th><td>${esc(product.rarity || "—")}</td></tr>
-          <tr><th>Condição</th><td>${esc(product.condition || "—")}</td></tr>
+          <tr><th>Condição</th><td>${esc(productCondition(product))}</td></tr>
           <tr><th>Idioma</th><td>${langMark(product.lang)}</td></tr>
           <tr><th>Acabamento</th><td>${esc(product.finish || "—")}</td></tr>
           <tr><th>Quantidade</th><td>${esc(qty)}</td></tr>

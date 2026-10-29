@@ -7,7 +7,7 @@ import { artFile, isCardBack, plainArt, productImage, sanitizeImage, setLogoFall
 import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial } from "../lib/official-sets.mjs";
 import { resizeJpegDataUrl } from "../lib/image-node.mjs";
 import jpeg from "jpeg-js";
-import { buildProduct, displayKind, duplicateProduct, filterProducts, productFromQuery, stepQty } from "../lib/products.mjs";
+import { buildProduct, displayKind, duplicateProduct, filterProducts, productCondition, productFromQuery, stepQty } from "../lib/products.mjs";
 import { labelOf, matchesProduct, needles, rankGroups, scoreGroup, sealedKind } from "../lib/sealed-match.mjs";
 import { correctSealedImage, searchSealed } from "../lib/sealed.mjs";
 import { searchSets, setDeleteError } from "../lib/sets.mjs";
@@ -134,6 +134,7 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(draft.kind, "sealed");
   assert.equal(draft.rarity, "BB");
   assert.equal(draft.finish, "Lacrado");
+  assert.equal(draft.condition, "Lacrado");
   assert.equal(draft.number, "");
   const loose = await searchSealed("Box Mega Charizard Y", {
     groups: [
@@ -169,6 +170,9 @@ test("coleção, produto, pré-venda e foto", () => {
   const saved = buildProduct({ id: "me6-1", kind: "presale", name: "Box", set_id: "me6", price: "13,99", qty: 2, image: "javascript:alert(1)" });
   assert.equal(saved.ok, true);
   assert.equal(saved.row.kind, "sealed");
+  assert.equal(saved.row.condition, "Lacrado");
+  assert.equal(buildProduct({ id: "sealed-1", kind: "sealed", name: "Blister", set_id: "me5", condition: "NM", price: 10 }).row.condition, "Lacrado");
+  assert.equal(productCondition({ id: "sealed-1", kind: "sealed", condition: "NM" }), "Lacrado");
   assert.equal(saved.row.price, 13.99);
   assert.equal(saved.row.image, "");
   const fromLink = productFromQuery(new URLSearchParams("kind=single&id=swshp-SWSH020&name=Pikachu&set_id=swshp&number=SWSH020&rarity=Promo&condition=NM&lang=PT&finish=Normal&qty=1&price=199"));

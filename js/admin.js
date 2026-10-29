@@ -1,14 +1,14 @@
 import { client } from "/js/supabase.js";
 import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, productImage, sanitizeImage } from "/lib/image.mjs?v=2";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
-import { sealedDraft } from "/lib/sealed-draft.mjs";
+import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
 import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
 import { SET_PT } from "/lib/official-sets.mjs";
 import { bindSetLogos, setLogoSrc } from "/js/set-logo.js";
-import { buildProduct, displayKind, duplicateProduct, filterProducts, productFromQuery, removedError, stepQty, stockValue } from "/lib/products.mjs";
+import { buildProduct, displayKind, duplicateProduct, filterProducts, productFromQuery, removedError, stepQty, stockValue } from "/lib/products.mjs?v=3";
 import { money } from "/lib/shop.mjs";
 import { summarizeVisits } from "/lib/visits.mjs";
 import { esc } from "/lib/text.mjs";
@@ -112,8 +112,9 @@ function productRows(list) {
     const master = displayKind(product) === "master";
     const logo = master ? setLogoSrc(product.set_id) : "";
     const photo = master ? "" : productImage(product);
+    const own = master && product.image && product.image !== logo && !/\/logo\.png(?:$|\?)/.test(product.image) && !product.image.endsWith("me06-logo.png");
     const thumb = master
-      ? (logo ? `<img class="thumb" alt="" src="${esc(logo)}" data-set-logo />` : `<span class="thumb"></span>`)
+      ? (own ? `<img class="thumb" alt="" src="${esc(product.image)}" data-card />` : (logo ? `<img class="thumb" alt="" src="${esc(logo)}" data-set-logo />` : `<span class="thumb"></span>`))
       : (photo ? `<img class="thumb" alt="" src="${esc(photo)}" data-card />` : `<span class="thumb"></span>`);
     return `
     <div class="row${master ? " master-row" : ""}">
@@ -333,9 +334,9 @@ function editorHtml() {
   const kind = editor.kind;
   const master = kind === "master";
   const sealed = kind !== "single";
-  const p = product || { id: "", name: "", set_id: "", number: "", rarity: "", condition: master ? "Completo" : "NM", lang: "PT", finish: master ? "Master Set" : sealed ? "Lacrado" : "Normal", qty: 1, price: "" };
-  const logo = master ? setLogoSrc(p.set_id) : "";
-  const preview = master ? logo : (editor.image || "");
+  const p = product || { id: "", name: "", set_id: "", number: "", rarity: "", condition: master ? "Completo" : sealed ? "Lacrado" : "NM", lang: "PT", finish: master ? "Master Set" : sealed ? "Lacrado" : "Normal", qty: 1, price: "" };
+  const preview = editor.image || "";
+  const ownPhoto = Boolean(editor.ownPhoto);
   const search = master ? "" : sealed ? `
       <label>Coleção do produto<input id="sealed-q" type="search" placeholder="Evoluções Prismáticas" autocomplete="off" /></label>
       <div id="sealed-types" class="types"></div>
@@ -349,13 +350,13 @@ function editorHtml() {
       <h2>${product ? "Editar" : master ? "Novo master set" : kind === "presale" ? "Nova pré-venda" : sealed ? "Novo lacrado" : "Nova carta"}</h2>
       <input type="hidden" name="kind" value="${kind === "single" ? "single" : kind === "presale" ? "presale" : master ? "master" : "sealed"}" />
       ${search}
-      ${master
-        ? (preview ? `<img class="preview logo-preview" id="photo-preview" alt="" src="${esc(preview)}" data-set-logo />` : `<p class="muted" id="photo-preview">Escolha a coleção para usar a logo.</p>`)
-        : (preview ? `<img class="preview" id="photo-preview" alt="" src="${esc(preview)}" data-card />` : `<p class="muted" id="photo-preview">Sem foto</p>`)}
-      ${master ? "" : `<div class="actions">
-        <label class="ghost">Trocar a foto<input id="photo-file" type="file" accept="image/*" hidden /></label>
+      ${preview
+        ? `<img class="preview${master && !ownPhoto ? " logo-preview" : ""}" id="photo-preview" alt="" src="${esc(preview)}" ${master && !ownPhoto ? "data-set-logo" : "data-card"} />`
+        : `<p class="muted" id="photo-preview">${master ? "Escolha a coleção para usar a logo." : "Sem foto"}</p>`}
+      <div class="actions">
+        <label class="ghost">${master ? "Adicionar foto" : "Trocar a foto"}<input id="photo-file" type="file" accept="image/*" hidden /></label>
         <button class="ghost" type="button" id="photo-clear">Tirar foto</button>
-      </div>`}
+      </div>
       <div class="two">${field("id", "Código", p.id)}${field("name", "Nome", p.name)}</div>
       <input type="hidden" name="set_id" value="${esc(p.set_id || "")}" />
       <label>Coleção da loja<input id="set-q" type="search" placeholder="Buscar coleção" autocomplete="off" value="${esc(p.set_id ? setName(p.set_id) : "")}" /></label>
@@ -366,10 +367,10 @@ function editorHtml() {
         ${sealed ? "" : conditionField(p.condition || "NM")}
         <label>Idioma<select name="lang">${LANGS.map(([code, label, flag]) => `<option value="${code}"${(p.lang || "PT") === code ? " selected" : ""}>${flag} ${label}</option>`).join("")}</select></label>
       </div>
-      ${sealed ? `<input type="hidden" name="condition" value="${esc(p.condition || "NM")}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
+      ${sealed ? `<input type="hidden" name="condition" value="${esc(!p.condition || p.condition === "NM" ? "Lacrado" : p.condition)}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
       <div class="two">${field("qty", "Quantidade", p.qty, "number")}${field("price", "Preço", p.price === 0 || p.price ? p.price : "", "text")}</div>
       ${kind === "presale" ? `<p class="muted">Para aparecer como pré-venda, o código precisa começar com me6-.</p>` : ""}
-      ${master ? `<p class="muted">A logo da coleção escolhida aparece na loja. O código precisa começar com master-.</p>` : ""}
+      ${master ? `<p class="muted">Sem uma foto sua, a loja usa a logo da coleção. O código precisa começar com master-.</p>` : ""}
       <div class="actions">
         <button class="solid" type="submit">Salvar</button>
         ${product ? `<button class="ghost" type="button" id="copy">Duplicar</button>` : ""}
@@ -504,15 +505,23 @@ async function reload() {
   render();
 }
 
+function ownMasterPhoto(product) {
+  const saved = String(product?.image || "");
+  const logo = setLogoSrc(product?.set_id);
+  return Boolean(saved) && saved !== logo && !/\/logo\.png(?:$|\?)/.test(saved) && !saved.endsWith("me06-logo.png");
+}
+
 function openEditor(product, kind) {
   bannerEditing = null;
   bannerImage = "";
   tabEditing = null;
   const nextKind = product ? displayKind(product) : kind;
+  const ownPhoto = nextKind === "master" && ownMasterPhoto(product);
   editor = {
     product: product || null,
     kind: nextKind,
-    image: nextKind === "master" ? setLogoSrc(product?.set_id) : (product?.image || ""),
+    ownPhoto,
+    image: ownPhoto ? product.image : (nextKind === "master" ? setLogoSrc(product?.set_id) : (product?.image || "")),
     cards: [],
     chosen: "",
     sealed: [],
@@ -539,7 +548,7 @@ function chooseSet(set) {
   document.getElementById("set-chosen").textContent = set.name;
   document.getElementById("set-q").value = set.name;
   document.getElementById("set-hits").innerHTML = "";
-  if (editor?.kind === "master") {
+  if (editor?.kind === "master" && !editor.ownPhoto) {
     editor.image = setLogoSrc(set.id);
     showLogoPreview(editor.image);
   }
@@ -579,8 +588,12 @@ function showPreview(src) {
     current.outerHTML = `<p class="muted" id="photo-preview">Sem foto</p>`;
     return;
   }
-  if (current.tagName === "IMG") current.src = src;
-  else current.outerHTML = `<img class="preview" id="photo-preview" alt="" src="${esc(src)}" data-card />`;
+  if (current.tagName === "IMG") {
+    current.src = src;
+    current.classList.remove("logo-preview");
+    current.removeAttribute("data-set-logo");
+    current.setAttribute("data-card", "");
+  } else current.outerHTML = `<img class="preview" id="photo-preview" alt="" src="${esc(src)}" data-card />`;
   bindCardImages();
 }
 
@@ -682,6 +695,7 @@ function applySealed(item) {
     form.elements.name.value = draft.name;
     form.elements.rarity.value = draft.rarity;
     form.elements.finish.value = draft.finish;
+    form.elements.condition.value = draft.condition;
   }
   editor.image = draft.image;
   showPreview(draft.image);
@@ -718,7 +732,7 @@ async function saveProduct(event) {
     finish: form.get("finish"),
     qty: form.get("qty"),
     price: form.get("price"),
-    image: kind === "master" ? setLogoSrc(form.get("set_id")) : (editor?.image || ""),
+    image: editor?.ownPhoto ? (editor.image || "") : (kind === "master" ? setLogoSrc(form.get("set_id")) : (editor?.image || "")),
   });
   const note = document.getElementById("desk-msg");
   const fail = (text) => { message = text; if (note) note.textContent = text; };
@@ -911,7 +925,17 @@ app.addEventListener("click", async (event) => {
   if (event.target.id === "add-presale") { openEditor(null, "presale"); return; }
   if (event.target.id === "add-master") { openEditor(null, "master"); return; }
   if (event.target.id === "editor-cancel") { editor = null; render(); return; }
-  if (event.target.id === "photo-clear") { editor.image = ""; showPreview(""); return; }
+  if (event.target.id === "photo-clear") {
+    if (editor?.kind === "master") {
+      editor.ownPhoto = false;
+      editor.image = setLogoSrc(document.querySelector("#editor-form [name=set_id]")?.value || "");
+      showLogoPreview(editor.image);
+    } else {
+      editor.image = "";
+      showPreview("");
+    }
+    return;
+  }
   if (event.target.id === "condition-add") {
     const input = document.getElementById("condition-new");
     const select = document.querySelector("#editor-form select[name=condition]");
@@ -1030,6 +1054,7 @@ app.addEventListener("change", async (event) => {
   if (event.target.id === "photo-file" && event.target.files[0]) {
     try {
       editor.image = sanitizeImage(await readPhoto(event.target.files[0], { maxSide: PHOTO_MAX_SIDE, quality: PHOTO_QUALITY }));
+      editor.ownPhoto = true;
       showPreview(editor.image);
     } catch (error) { message = error.message; document.getElementById("desk-msg").textContent = message; }
     return;
