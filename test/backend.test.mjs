@@ -8,7 +8,7 @@ import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial }
 import { resizeJpegDataUrl } from "../lib/image-node.mjs";
 import jpeg from "jpeg-js";
 import { buildProduct, displayKind, duplicateProduct, filterProducts, productCondition, productFromQuery, stepQty } from "../lib/products.mjs";
-import { labelOf, matchesProduct, needles, rankGroups, scoreGroup, sealedKind } from "../lib/sealed-match.mjs";
+import { labelOf, matchesProduct, needles, rankGroups, scoreGroup, sealedKind, sealedShelf, shelfOrder } from "../lib/sealed-match.mjs";
 import { correctSealedImage, searchSealed } from "../lib/sealed.mjs";
 import { searchSets, setDeleteError } from "../lib/sets.mjs";
 import { buyLabel, forSale, onOrder, whatsappText, whatsappUrl } from "../lib/shop.mjs";
@@ -135,6 +135,12 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(items.find((item) => item.productId === "sv8pt5-therastal").name, "Box Therastal Evoluções Prismáticas");
   assert.equal(items.find((item) => item.productId === "sv8pt5-therastal").label, "BB");
   assert.equal(sealedKind("Box Therastal Evoluções Prismáticas"), "BB");
+  assert.equal(sealedShelf({ name: "Coleção Treinador Avan. Reinado Delta", set_id: "me6" }), "Reinado Delta");
+  assert.equal(sealedShelf({ name: "Booster Box Reinado Delta", set_id: "me6" }), "Reinado Delta");
+  assert.equal(sealedShelf({ name: "Mini BB Reinado Delta", set_id: "me6" }), "Reinado Delta");
+  assert.equal(sealedShelf({ name: "Blister Quádruplo Reinado Delta", set_id: "me6" }), "Reinado Delta");
+  assert.equal(sealedShelf({ name: "Booster Box Escuridão Absoluta", set_id: "me5" }), "BB");
+  assert.deepEqual(shelfOrder().slice(0, 2), ["ETB", "Reinado Delta"]);
   assert.equal(items.find((item) => item.productId === 9).label, "BB");
   const draft = sealedDraft(items.find((item) => item.productId === 9), { finish: "Normal" });
   assert.equal(draft.id, "sealed-9");

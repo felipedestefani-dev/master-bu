@@ -9,7 +9,7 @@ import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
 import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
-import { LABEL_ORDER, sealedKind } from "/lib/sealed-match.mjs?v=4";
+import { sealedShelf, shelfOrder } from "/lib/sealed-match.mjs?v=5";
 import { esc, safeSearch, slugId } from "/lib/text.mjs";
 
 const main = document.getElementById("conteudo");
@@ -152,11 +152,11 @@ function byPrice(items) {
 function sealedShelves(list, prefix) {
   const groups = new Map();
   for (const product of list) {
-    const kind = sealedKind(product.name);
+    const kind = sealedShelf(product);
     if (!groups.has(kind)) groups.set(kind, []);
     groups.get(kind).push(product);
   }
-  const order = [...LABEL_ORDER, "Outros"];
+  const order = shelfOrder();
   const html = [...groups.keys()]
     .sort((a, b) => {
       const left = order.indexOf(a);
