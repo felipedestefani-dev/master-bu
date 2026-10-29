@@ -9,7 +9,7 @@ import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
 import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
-import { LABEL_ORDER, sealedKind } from "/lib/sealed-match.mjs";
+import { LABEL_ORDER, sealedKind } from "/lib/sealed-match.mjs?v=2";
 import { esc, safeSearch, slugId } from "/lib/text.mjs";
 
 const main = document.getElementById("conteudo");

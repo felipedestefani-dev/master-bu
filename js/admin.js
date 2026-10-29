@@ -2,7 +2,7 @@ import { client } from "/js/supabase.js";
 import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, masterPhoto, productImage, sanitizeImage } from "/lib/image.mjs?v=3";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
-import { LABEL_ORDER } from "/lib/sealed-match.mjs";
+import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=2";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
 import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";

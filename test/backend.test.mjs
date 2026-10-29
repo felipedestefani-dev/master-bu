@@ -93,6 +93,9 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.deepEqual(needles("a"), []);
   assert.ok(needles("Evoluções Prismáticas").includes("prismatic evolutions"));
   assert.equal(labelOf("Prismatic Evolutions Booster Box"), "BB");
+  assert.equal(labelOf("Pitch Black Half Booster Boxes"), "Mini BB");
+  assert.equal(labelOf("Delta Reign Half Booster Box"), "Mini BB");
+  assert.equal(labelOf("Pitch Black Booster Box"), "BB");
   assert.equal(labelOf("Elite Trainer Box"), "ETB");
   assert.equal(labelOf("Code Card"), "");
   assert.equal(labelOf("Booster Box Case"), "");
@@ -106,6 +109,7 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(labelOf("Eevee - 143/191"), "");
   assert.equal(sealedKind("Blister Quádruplo de Caos Ascendente"), "Quádruplo");
   assert.equal(sealedKind("Mini Booster Box Reinado Delta"), "Mini BB");
+  assert.equal(sealedKind("Mini BB Caos Ascendente"), "Mini BB");
   assert.equal(sealedKind("Coleção Treinador Avan. Equilíbrio Perfeito"), "ETB");
   assert.equal(sealedKind("UPC Mega Charizard X ex"), "UPC");
   assert.ok(needles("Therastal").includes("prismatic evolutions"));
@@ -127,9 +131,9 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
       { productId: 7, name: "Prismatic Evolutions Elite Trainer Box", imageUrl: "" },
     ] : [],
   });
-  assert.equal(items.length, 1);
-  assert.equal(items[0].label, "BB");
-  const draft = sealedDraft(items[0], { finish: "Normal" });
+  assert.equal(items.find((item) => item.productId === "sv8pt5-therastal").name, "Box Therastal Evoluções Prismáticas");
+  assert.equal(items.find((item) => item.productId === 9).label, "BB");
+  const draft = sealedDraft(items.find((item) => item.productId === 9), { finish: "Normal" });
   assert.equal(draft.id, "sealed-9");
   assert.equal(draft.kind, "sealed");
   assert.equal(draft.rarity, "BB");
