@@ -1,7 +1,7 @@
 import { STORE, WHATSAPP_PHONE } from "/js/config.js";
 import { legal } from "/js/legal.js";
 import { client } from "/js/supabase.js";
-import { isCardBack, productImage } from "/lib/image.mjs";
+import { isCardBack, productImage } from "/lib/image.mjs?v=2";
 import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts } from "/lib/products.mjs";
 import { publicBanners } from "/lib/banners.mjs";

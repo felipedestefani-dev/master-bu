@@ -1,5 +1,5 @@
 import { client } from "/js/supabase.js";
-import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, productImage, sanitizeImage } from "/lib/image.mjs";
+import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, productImage, sanitizeImage } from "/lib/image.mjs?v=2";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs";

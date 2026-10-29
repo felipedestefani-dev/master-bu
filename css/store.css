@@ -372,9 +372,14 @@ main.shine .shot::after { animation: card-shine 2.8s ease-in-out infinite; }
   0% { transform: translateX(-220%); }
   42%, 100% { transform: translateX(420%); }
 }
-.shot img { width: 100%; height: 100%; object-fit: contain; transition: transform .4s ease; }
-.shot img.pack, .shot img.tight { width: 100%; height: 100%; }
-.card:hover .shot img { transform: scale(1.04); }
+.shot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
 .card h3 { font-size: 1rem; font-weight: 650; }
 .flag { margin-right: 4px; }
 .marks { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; }
@@ -423,8 +428,7 @@ a.buy:active, .solid:active { transform: translateY(0); }
 }
 .detail .shot { aspect-ratio: auto; }
 .detail .shot img { width: 100%; }
-.detail .shot img.pack { width: 76%; }
-.detail .shot img.tight { width: 58%; }
+.detail .shot img.pack, .detail .shot img.tight { width: 100%; object-fit: contain; }
 .specs { width: 100%; border-collapse: collapse; margin: 18px 0 22px; }
 .specs th, .specs td { text-align: left; padding: 8px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .specs th { color: var(--muted); font-weight: 500; width: 38%; }
