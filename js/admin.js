@@ -1,5 +1,5 @@
 import { client } from "/js/supabase.js";
-import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, productImage, sanitizeImage } from "/lib/image.mjs?v=2";
+import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, masterPhoto, productImage, sanitizeImage } from "/lib/image.mjs?v=3";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs";
@@ -112,9 +112,10 @@ function productRows(list) {
     const master = displayKind(product) === "master";
     const logo = master ? setLogoSrc(product.set_id) : "";
     const photo = master ? "" : productImage(product);
-    const own = master && product.image && product.image !== logo && !/\/logo\.png(?:$|\?)/.test(product.image) && !product.image.endsWith("me06-logo.png");
+    const shown = masterPhoto(product);
+    const own = master && shown && shown !== logo && !/\/logo\.png(?:$|\?)/.test(shown) && !shown.endsWith("me06-logo.png");
     const thumb = master
-      ? (own ? `<img class="thumb" alt="" src="${esc(product.image)}" data-card />` : (logo ? `<img class="thumb" alt="" src="${esc(logo)}" data-set-logo />` : `<span class="thumb"></span>`))
+      ? (own ? `<img class="thumb" alt="" src="${esc(shown)}" data-card />` : (logo ? `<img class="thumb" alt="" src="${esc(logo)}" data-set-logo />` : `<span class="thumb"></span>`))
       : (photo ? `<img class="thumb" alt="" src="${esc(photo)}" data-card />` : `<span class="thumb"></span>`);
     return `
     <div class="row${master ? " master-row" : ""}">
@@ -506,7 +507,7 @@ async function reload() {
 }
 
 function ownMasterPhoto(product) {
-  const saved = String(product?.image || "");
+  const saved = masterPhoto(product);
   const logo = setLogoSrc(product?.set_id);
   return Boolean(saved) && saved !== logo && !/\/logo\.png(?:$|\?)/.test(saved) && !saved.endsWith("me06-logo.png");
 }
@@ -521,7 +522,7 @@ function openEditor(product, kind) {
     product: product || null,
     kind: nextKind,
     ownPhoto,
-    image: ownPhoto ? product.image : (nextKind === "master" ? setLogoSrc(product?.set_id) : (product?.image || "")),
+    image: ownPhoto ? masterPhoto(product) : (nextKind === "master" ? setLogoSrc(product?.set_id) : (product?.image || "")),
     cards: [],
     chosen: "",
     sealed: [],

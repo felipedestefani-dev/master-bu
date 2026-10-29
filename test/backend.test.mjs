@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildBanner, publicBanners, reorderBanners } from "../lib/banners.mjs";
 import { cardDraft, cardMatches, displayNumber, findDirectCards, parseCardSearch, searchCardNames, searchTokens, setLabel, suggestFinish, translateRarity } from "../lib/cards.mjs";
-import { artFile, isCardBack, plainArt, productImage, sanitizeImage, setLogoFallback, setLogoSrc } from "../lib/image.mjs";
+import { artFile, isCardBack, masterPhoto, plainArt, productImage, sanitizeImage, setLogoFallback, setLogoSrc } from "../lib/image.mjs";
 import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial } from "../lib/official-sets.mjs";
 import { resizeJpegDataUrl } from "../lib/image-node.mjs";
 import jpeg from "jpeg-js";
@@ -160,6 +160,7 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(productImage({ id: "sealed-684460", kind: "sealed", name: "Chaos Rising Premium Checklane Blister", image: "https://tcgplayer-cdn.tcgplayer.com/product/692957_200w.jpg" }), "/assets/products/sealed-me4-quad-b.png");
   assert.equal(productImage({ id: "sealed-684460", kind: "sealed", name: "Chaos Rising Premium Checklane Blister", image: "/assets/products/minha-foto.png" }), "/assets/products/minha-foto.png");
   assert.equal(productImage({ id: "sealed-me5-etb", kind: "sealed", name: "Coleção Treinador Avan. Escuridão Absoluta", image: "https://tcgplayer-cdn.tcgplayer.com/product/692947_200w.jpg" }), "/assets/products/sealed-me5-etb-b.png");
+  assert.equal(masterPhoto({ image: "data:image/jpeg;base64,03ZzEFfLsu4C5zDmgvxdmH+4923tOyi7tzfmBzUh8LZGCItBYOVja2hFjlbmuvU8Gv8u3/2ribUkVQuA" }), "/assets/products/master-me4-caos.png");
 });
 
 test("coleção, produto, pré-venda e foto", () => {

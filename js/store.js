@@ -1,7 +1,7 @@
 import { STORE, WHATSAPP_PHONE } from "/js/config.js";
 import { legal } from "/js/legal.js";
 import { client } from "/js/supabase.js";
-import { isCardBack, productImage } from "/lib/image.mjs?v=2";
+import { isCardBack, masterPhoto, productImage } from "/lib/image.mjs?v=3";
 import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts, productCondition } from "/lib/products.mjs?v=3";
 import { publicBanners } from "/lib/banners.mjs";
@@ -96,7 +96,7 @@ function buyButton(product, setName) {
 function shot(product) {
   const logo = product.set_id ? setLogoSrc(product.set_id) : "";
   if (displayKind(product) === "master") {
-    const saved = String(product.image || "");
+    const saved = masterPhoto(product);
     const own = saved && saved !== logo && !/\/logo\.png(?:$|\?)/.test(saved) && !saved.endsWith("me06-logo.png");
     if (own) return `<div class="shot"><img data-card class="pack" src="${esc(saved)}" alt="${esc(product.name)}" loading="lazy" /></div>`;
     if (!logo) return `<div class="shot"></div>`;
