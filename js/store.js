@@ -109,7 +109,7 @@ function shot(product) {
   }
   const fallback = logo ? ` data-fallback="${esc(logo)}"` : "";
   const pack = displayKind(product) === "single" ? "" : ` class="pack${src.includes("sealed-me5-unit") ? " tight" : ""}"`;
-  return `<div class="shot"><img data-card${pack} src="${esc(src)}" alt="${esc(product.name)}" loading="lazy"${fallback} /></div>`;
+  return `<div class="shot"><img data-card${pack} src="${esc(src)}" alt="${esc(product.name)}" loading="lazy" decoding="async"${fallback} /></div>`;
 }
 
 function cardHtml(product) {
@@ -244,7 +244,7 @@ function itemPage(id) {
   const qty = onOrder(product) ? "Sob encomenda" : `${product.qty} un.`;
   document.title = `${product.name} · Master Bu`;
   return `
-    <a class="back" href="#/${displayKind(product) === "presale" ? "prevenda" : displayKind(product) === "master" ? "masterset" : displayKind(product) === "sealed" ? "lacrados" : "avulsos"}">Voltar</a>
+    <a class="back" href="#/${displayKind(product) === "presale" ? "prevenda" : displayKind(product) === "master" ? "masterset" : displayKind(product) === "sealed" ? "lacrados" : "avulsos"}">← Voltar</a>
     <article class="detail">
       ${shot(product)}
       <div>
@@ -319,7 +319,7 @@ function render() {
     const doc = legal(name);
     main.innerHTML = page(doc.title, "", `<div class="prose">${doc.body}</div>`);
   } else if (failed) {
-    main.innerHTML = `<p class="empty">A vitrine não carregou agora. Tente de novo em instantes.</p>`;
+    main.innerHTML = `<p class="loading">A vitrine não carregou agora. Tente de novo em instantes.</p>`;
     reveal();
     return;
   } else if (name === "item") main.innerHTML = itemPage(id);
@@ -348,7 +348,7 @@ function render() {
 }
 
 function reveal() {
-  main.classList.remove("is-ready");
+  if (main.classList.contains("is-ready")) return;
   requestAnimationFrame(() => main.classList.add("is-ready"));
 }
 
@@ -417,7 +417,6 @@ function bindImages() {
   });
   bindSetLogos(main);
   paintFilterLogo();
-  main.classList.toggle("shine", main.querySelectorAll(".card").length > 1);
   bindRails();
   reveal();
 }
@@ -584,7 +583,11 @@ function paintCookies() {
 }
 
 document.querySelector(".find").addEventListener("submit", (event) => event.preventDefault());
-qInput.addEventListener("input", render);
+let searchTimer = 0;
+qInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(render, 140);
+});
 setSelect.addEventListener("change", render);
 const setButton = document.getElementById("colecao-btn");
 const setMenu = document.getElementById("colecao-menu");

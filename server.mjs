@@ -37,13 +37,15 @@ const server = http.createServer(async (req, res) => {
   }
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === "/admin") pathname = "/admin/index.html";
-  if (pathname.includes("..") || pathname.startsWith("/node_modules") || pathname.startsWith("/test") || pathname.startsWith("/supabase")) {
+  const hidden = pathname.split("/").some((part) => part === ".." || part.startsWith("."));
+  if (hidden || pathname.startsWith("/node_modules") || pathname.startsWith("/test") || pathname.startsWith("/supabase")) {
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     res.end("Não encontrado");
     return;
   }
   const file = path.normalize(path.join(root, pathname));
-  if (!file.startsWith(root)) {
+  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+  if (file !== root && !file.startsWith(rootWithSep)) {
     res.writeHead(403).end();
     return;
   }
