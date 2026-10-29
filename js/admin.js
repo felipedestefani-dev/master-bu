@@ -1,11 +1,11 @@
 import { client } from "/js/supabase.js";
-import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, masterPhoto, productImage, sanitizeImage } from "/lib/image.mjs?v=3";
+import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, masterPhoto, productImage, sanitizeImage } from "/lib/image.mjs?v=4";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=4";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
 import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
-import { catalogShelves, shelfKey, shelvesFromProducts, shelvesToBanners } from "/lib/shelves.mjs?v=1";
+import { catalogShelves, placeProduct, shelfKey, shelvesFromProducts, shelvesToBanners } from "/lib/shelves.mjs?v=2";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
 import { SET_PT } from "/lib/official-sets.mjs";
 import { bindSetLogos, setLogoSrc } from "/js/set-logo.js";
@@ -296,6 +296,12 @@ function catalogShelfList() {
   return saved.length ? saved : shelvesFromProducts(products);
 }
 
+function shelfOf(productId) {
+  if (!productId) return "";
+  const found = catalogShelfList().find((shelf) => shelf.productIds.includes(productId));
+  return found?.id || "";
+}
+
 function tabsView() {
   const list = catalogShelfList();
   const catalog = products.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "pt"));
@@ -391,6 +397,7 @@ function editorHtml() {
       </div>
       ${sealed ? `<input type="hidden" name="condition" value="${esc(!p.condition || p.condition === "NM" ? "Lacrado" : p.condition)}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
       <div class="two">${field("qty", "Quantidade", p.qty, "number")}${field("price", "Preço", p.price === 0 || p.price ? p.price : "", "text")}</div>
+      ${kind === "single" || kind === "sealed" ? `<label>Aba<select name="shelf"><option value="">Sem aba</option>${catalogShelfList().map((shelf) => `<option value="${esc(shelf.id)}"${shelfOf(product?.id) === shelf.id ? " selected" : ""}>${esc(shelf.label)}</option>`).join("")}</select></label>` : ""}
       <div class="actions">
         <button class="solid" type="submit">Salvar</button>
         ${product ? `<button class="ghost" type="button" id="copy">Duplicar</button>` : ""}
@@ -530,6 +537,13 @@ function ownMasterPhoto(product) {
   return Boolean(saved) && saved !== logo && !/\/logo\.png(?:$|\?)/.test(saved) && !saved.endsWith("me06-logo.png");
 }
 
+function editorPhoto(product) {
+  const saved = String(product?.image || "");
+  const shown = product ? productImage(product) : "";
+  if (saved.startsWith("data:image/jpeg") && shown.startsWith("/assets/")) return shown;
+  return saved;
+}
+
 function openEditor(product, kind) {
   bannerEditing = null;
   bannerImage = "";
@@ -540,7 +554,7 @@ function openEditor(product, kind) {
     product: product || null,
     kind: nextKind,
     ownPhoto,
-    image: ownPhoto ? masterPhoto(product) : (nextKind === "master" ? setLogoSrc(product?.set_id) : (product?.image || "")),
+    image: ownPhoto ? masterPhoto(product) : (nextKind === "master" ? setLogoSrc(product?.set_id) : editorPhoto(product)),
     cards: [],
     chosen: "",
     sealed: [],
@@ -768,6 +782,10 @@ async function saveProduct(event) {
   if (!set) { fail("Escolha a coleção."); return; }
   const error = await persistProduct(built.row, set);
   if (error) { fail(error); return; }
+  if (kind === "single" || kind === "sealed") {
+    const shelfError = await assignShelf(built.row.id, String(form.get("shelf") || ""));
+    if (shelfError) { fail(shelfError); return; }
+  }
   message = "Item salvo.";
   editor = null;
   await reload();
@@ -890,6 +908,28 @@ function takeShelves() {
   }));
 }
 
+async function writeShelves(list) {
+  const next = shelvesToBanners(list);
+  const old = banners.filter((row) => row.scroll === "aba" || row.scroll === "abi");
+  const keep = new Set(next.map((row) => row.id));
+  const remove = old.map((row) => row.id).filter((id) => !keep.has(id));
+  if (next.length) {
+    const { error } = await sb.from("banners").upsert(next);
+    if (error) return error.message;
+  }
+  if (remove.length) {
+    const { error } = await sb.from("banners").delete().in("id", remove);
+    if (error) return error.message;
+  }
+  return "";
+}
+
+async function assignShelf(productId, shelfId) {
+  const base = catalogShelves(banners);
+  const list = placeProduct(base.length ? base : shelvesFromProducts(products), productId, shelfId);
+  return writeShelves(list);
+}
+
 async function saveShelves() {
   const list = takeShelves();
   shelfDraft = list;
@@ -898,18 +938,8 @@ async function saveShelves() {
     render();
     return;
   }
-  const next = shelvesToBanners(list);
-  const old = banners.filter((row) => row.scroll === "aba" || row.scroll === "abi");
-  const keep = new Set(next.map((row) => row.id));
-  const remove = old.map((row) => row.id).filter((id) => !keep.has(id));
-  if (next.length) {
-    const { error } = await sb.from("banners").upsert(next);
-    if (error) { message = error.message; render(); return; }
-  }
-  if (remove.length) {
-    const { error } = await sb.from("banners").delete().in("id", remove);
-    if (error) { message = error.message; render(); return; }
-  }
+  const error = await writeShelves(list);
+  if (error) { message = error; render(); return; }
   message = "Abas salvas.";
   shelfDraft = null;
   await reload();

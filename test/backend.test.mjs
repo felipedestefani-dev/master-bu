@@ -16,7 +16,7 @@ import { buildTab, publicTabs, reorderTabs } from "../lib/tabs.mjs";
 import { handleTcg } from "../lib/tcg-proxy.mjs";
 import { safeSearch } from "../lib/text.mjs";
 import { buildVisit, summarizeVisits, visitBounds } from "../lib/visits.mjs";
-import { catalogShelves, shelvesFromProducts, shelvesToBanners, visibleShelves } from "../lib/shelves.mjs";
+import { catalogShelves, placeProduct, shelvesFromProducts, shelvesToBanners, visibleShelves } from "../lib/shelves.mjs";
 import { sealedDraft } from "../lib/sealed-draft.mjs";
 
 const charizard = {
@@ -176,6 +176,7 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(productImage({ id: "sealed-684460", kind: "sealed", name: "Chaos Rising Premium Checklane Blister", image: "/assets/products/minha-foto.png" }), "/assets/products/minha-foto.png");
   assert.equal(productImage({ id: "sealed-me5-etb", kind: "sealed", name: "Coleção Treinador Avan. Escuridão Absoluta", image: "https://tcgplayer-cdn.tcgplayer.com/product/692947_200w.jpg" }), "/assets/products/sealed-me5-etb-b.png");
   assert.equal(masterPhoto({ image: "data:image/jpeg;base64,03ZzEFfLsu4C5zDmgvxdmH+4923tOyi7tzfmBzUh8LZGCItBYOVja2hFjlbmuvU8Gv8u3/2ribUkVQuA" }), "/assets/products/master-me4-caos.png");
+  assert.equal(productImage({ id: "Random", kind: "sealed", name: "Box Therastal", image: "data:image/jpeg;base64,H/K/rIKyPGdh+1yvDbJQAAejRnAxkhc/mK3u60sX9VQSS3pG8XY/ZRm1cI9qMH4krtZVQ5BbG0EK5/MF" }), "/assets/products/sealed-sv8pt5-therastal-c.png");
 });
 
 test("coleção, produto, pré-venda e foto", () => {
@@ -356,6 +357,9 @@ test("abas do catálogo guardam nome, ordem e produtos", () => {
   assert.equal(shown[0].items.length, 3);
   assert.equal(shown[1].label, "Caixas ETB");
   assert.equal(visibleShelves([...products, { id: "sealed-extra", kind: "sealed", name: "Blister Unitário Escuridão Absoluta", set_id: "me5" }], rows).at(-1).label, "Outros");
+  const moved = placeProduct(edited, "card-1", "etb");
+  assert.deepEqual(moved.find((shelf) => shelf.id === "etb").productIds, ["sealed-etb", "card-1"]);
+  assert.equal(moved.find((shelf) => shelf.id === "reinadodelta").productIds.includes("card-1"), false);
 });
 
 test("abas da loja entram, saem e mudam de lugar", () => {

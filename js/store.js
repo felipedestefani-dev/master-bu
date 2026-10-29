@@ -1,7 +1,7 @@
 import { STORE, WHATSAPP_PHONE } from "/js/config.js";
 import { legal } from "/js/legal.js";
 import { client } from "/js/supabase.js";
-import { isCardBack, masterPhoto, productImage } from "/lib/image.mjs?v=3";
+import { isCardBack, masterPhoto, productImage } from "/lib/image.mjs?v=4";
 import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts, productCondition } from "/lib/products.mjs?v=3";
 import { publicBanners } from "/lib/banners.mjs";
@@ -9,7 +9,7 @@ import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
 import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
-import { visibleShelves } from "/lib/shelves.mjs?v=1";
+import { visibleShelves } from "/lib/shelves.mjs?v=2";
 import { esc, safeSearch, slugId } from "/lib/text.mjs";
 
 const main = document.getElementById("conteudo");
