@@ -150,7 +150,7 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(loose[0].productId, "me1-charizard-y");
   assert.equal(loose[0].name, "Coleção Mega Charizard Y");
   assert.equal(loose[0].image, "/assets/products/sealed-me1-charizard-y.png");
-  assert.equal(correctSealedImage({ label: "Unitário", name: "Pitch Black Single Pack Blister [Slowpoke]", image: "https://img.example/slow.jpg" }).image, "/assets/products/sealed-me5-unit.png");
+  assert.equal(correctSealedImage({ label: "Unitário", name: "Pitch Black Single Pack Blister [Slowpoke]", image: "https://img.example/slow.jpg" }).image, "/assets/products/sealed-me5-unit-b.png");
   assert.equal(correctSealedImage({ label: "ETB", name: "Pitch Black Pokemon Center Elite Trainer Box", image: "https://img.example/pc.jpg" }).image, "https://img.example/pc.jpg");
   assert.equal(correctSealedImage({ label: "Unitário", name: "Chaos Rising Single Pack Blister [Toxel]" }).image, "/assets/products/sealed-me4-unit-c.png");
   assert.equal(correctSealedImage({ label: "Quádruplo", name: "Chaos Rising Premium Checklane Blister [Flygon Line]" }).image, "/assets/products/sealed-me4-quad-b.png");
