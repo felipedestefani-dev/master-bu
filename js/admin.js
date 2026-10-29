@@ -6,7 +6,7 @@ import { LABEL_ORDER } from "/lib/sealed-match.mjs";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
 import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
-import { SET_PT, fetchOfficialSets, formatRelease, matchOfficial, officialLabel, slimOfficialSet, storeSetFromOfficial } from "/lib/official-sets.mjs";
+import { SET_PT } from "/lib/official-sets.mjs";
 import { bindSetLogos, setLogoSrc } from "/js/set-logo.js";
 import { buildProduct, displayKind, duplicateProduct, filterProducts, productFromQuery, removedError, stepQty, stockValue } from "/lib/products.mjs";
 import { money } from "/lib/shop.mjs";
@@ -37,10 +37,6 @@ let bannerImage = "";
 let tabEditing = null;
 let searchToken = 0;
 let searchTimer = 0;
-let officialSets = null;
-let officialError = "";
-let masterQuery = "";
-const OFFICIAL_KEY = "mbu.officialSets";
 
 const LANGS = [["PT", "Português", "🇧🇷"], ["EN", "Inglês", "🇺🇸"], ["JP", "Japonês", "🇯🇵"], ["KO", "Coreano", "🇰🇷"], ["ZH", "Chinês", "🇨🇳"], ["ES", "Espanhol", "🇪🇸"], ["FR", "Francês", "🇫🇷"], ["DE", "Alemão", "🇩🇪"], ["IT", "Italiano", "🇮🇹"]];
 const CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"];
@@ -52,6 +48,7 @@ function setName(id) {
 function kindLabel(product) {
   const kind = displayKind(product);
   if (kind === "presale") return "Pré-venda";
+  if (kind === "master") return "Master set";
   if (kind === "sealed") return "Lacrado";
   return "Avulso";
 }
@@ -128,34 +125,54 @@ function productRows(list) {
     </div>`).join("");
 }
 
-function shell(title, body) {
-  const item = (id, label) => {
-    const icon = id === "master" ? `<img src="/assets/icons/masterset.svg" alt="" width="22" height="22" />` : "";
-    return `<button type="button" data-view="${id}" class="${view === id ? "is-on" : ""}">${icon}${label}</button>`;
+function icon(name) {
+  const paths = {
+    home: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    stock: '<path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M4 8l2-4h12l2 4"/><path d="M9 12h6"/>',
+    inventory: '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/>',
+    sets: '<rect x="4" y="4" width="12" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 8h4v12a2 2 0 0 1-2 2h-2"/>',
+    master: '<path d="M12 3l2.2 4.6L19 8.2l-3.5 3.4.8 4.9L12 14.2 7.7 16.5l.8-4.9L5 8.2l4.8-.6L12 3z"/>',
+    banners: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 5"/>',
+    tabs: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M7 6V4h6v2"/>',
+    visits: '<path d="M4 19V10"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M3 19h18"/>',
   };
+  return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || ""}</svg>`;
+}
+
+function shell(title, body) {
+  const item = (id, label) => `<button type="button" data-view="${id}" class="${view === id ? "is-on" : ""}">${icon(id)}<span>${label}</span></button>`;
   return `
     <div class="desk">
-      <div class="bar">
-        <img src="/assets/logo.png" alt="" width="56" height="48" />
-        <strong>Painel</strong>
-        <span class="muted">${esc(session.user.email)}</span>
-        <button class="ghost" type="button" id="logout">Sair</button>
+      <aside class="side">
+        <a class="brand" href="/admin"><img src="/assets/logo.png" alt="" width="56" height="48" /><strong>Painel</strong></a>
+        <nav class="menu" aria-label="Painel">
+          <p class="group-label">Loja</p>
+          ${item("home", "Visão geral")}
+          ${item("stock", "Vitrine")}
+          ${item("inventory", "Estoque")}
+          ${item("sets", "Coleções")}
+          ${item("master", "Master Set")}
+          <p class="group-label">Site</p>
+          ${item("banners", "Banners")}
+          ${item("tabs", "Abas")}
+          ${item("visits", "Visitas")}
+        </nav>
+        <div class="side-foot">
+          <span class="muted">${esc(session.user.email)}</span>
+          <button class="ghost" type="button" data-logout>Sair</button>
+        </div>
+      </aside>
+      <div class="work">
+        <div class="mobile-bar">
+          <span class="muted">${esc(session.user.email)}</span>
+          <button class="ghost" type="button" data-logout>Sair</button>
+        </div>
+        <h1>${esc(title)}</h1>
+        <div id="editor"></div>
+        <p class="msg" id="desk-msg">${esc(message)}</p>
+        ${body}
+        <p class="credit">Site desenvolvido por <a href="https://felipeseussites.vercel.app" target="_blank" rel="noopener noreferrer">Felipe</a></p>
       </div>
-      <nav class="menu" aria-label="Painel">
-        ${item("home", "Visão geral")}
-        ${item("stock", "Vitrine")}
-        ${item("inventory", "Estoque")}
-        ${item("sets", "Coleções")}
-        ${item("master", "Master Set")}
-        ${item("banners", "Banners")}
-        ${item("tabs", "Abas")}
-        ${item("visits", "Visitas")}
-      </nav>
-      <h1>${esc(title)}</h1>
-      ${body}
-      <p class="msg" id="desk-msg">${esc(message)}</p>
-      <div id="editor"></div>
-      <p class="credit">Site desenvolvido por <a href="https://felipeseussites.vercel.app" target="_blank" rel="noopener noreferrer">Felipe</a></p>
     </div>`;
 }
 
@@ -170,6 +187,7 @@ function homeView() {
       <div><span>Avulsos</span><b>${singles.length}</b></div>
       <div><span>Pré-venda</span><b>${presale.length}</b></div>
       <div><span>Lacrados</span><b>${sealed.length}</b></div>
+      <div><span>Master sets</span><b>${products.filter((product) => displayKind(product) === "master").length}</b></div>
       <div><span>Valor em estoque</span><b>${esc(money(stockValue(products)))}</b></div>
     </div>
     <section>
@@ -188,7 +206,7 @@ function stockView() {
     <div class="toolbar">
       <input id="stock-q" type="search" placeholder="Nome, número ou coleção" value="${esc(stockQuery)}" />
       <select id="stock-kind">
-        ${[["all", "Tudo"], ["single", "Avulsos"], ["presale", "Pré-venda"], ["sealed", "Lacrados"]].map(([value, label]) => `<option value="${value}"${stockKind === value ? " selected" : ""}>${label}</option>`).join("")}
+        ${[["all", "Tudo"], ["single", "Avulsos"], ["presale", "Pré-venda"], ["sealed", "Lacrados"], ["master", "Master sets"]].map(([value, label]) => `<option value="${value}"${stockKind === value ? " selected" : ""}>${label}</option>`).join("")}
       </select>
     </div>
     <div class="actions">
@@ -229,41 +247,14 @@ function setsView() {
     <div>${rows || `<p class="muted">Nenhuma coleção.</p>`}</div>`);
 }
 
-function shopNames() {
-  const names = { ...SET_PT };
-  for (const set of sets) names[set.id] = set.name;
-  return names;
-}
-
-function masterRows() {
-  const names = shopNames();
-  const list = (officialSets || []).filter((set) => matchOfficial(set, masterQuery, names));
-  if (!list.length) return `<p class="muted">Nenhuma coleção.</p>`;
-  const owned = new Set(sets.map((set) => set.id));
-  return list.map((set) => {
-    const inShop = owned.has(set.id);
-    const action = inShop
-      ? `<span class="muted">Na loja</span>`
-      : `<button class="ghost" type="button" data-use-set="${esc(set.id)}">Usar na loja</button>`;
-    return `
-      <div class="row master-row">
-        <img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />
-        <div>
-          <strong>${esc(officialLabel(set, names))}</strong>
-          <p>${esc(set.ptcgoCode || set.id)} · ${esc(set.series || "—")} · ${esc(formatRelease(set.releaseDate) || "—")}</p>
-        </div>
-        ${action}
-      </div>`;
-  }).join("");
-}
-
 function masterView() {
-  const body = officialError
-    ? `<p class="msg">${esc(officialError)}</p>`
-    : officialSets
-      ? `<div class="toolbar"><input id="master-q" type="search" placeholder="Nome, sigla ou código" value="${esc(masterQuery)}" /></div><div id="master-list">${masterRows()}</div>`
-      : `<p class="muted">Carregando coleções…</p>`;
-  return shell("Master Set", body);
+  const list = products.filter((product) => displayKind(product) === "master");
+  return shell("Master Set", `
+    <p class="lede">Master sets completos à venda na loja. O código começa com master-.</p>
+    <div class="actions">
+      <button class="solid" type="button" id="add-master">Adicionar master set</button>
+    </div>
+    <div id="plist">${list.length ? productRows(list) : `<p class="muted">Nenhum master set à venda.</p>`}</div>`);
 }
 
 function bannersView() {
@@ -332,10 +323,11 @@ function editorHtml() {
   if (!editor) return "";
   const product = editor.product;
   const kind = editor.kind;
+  const master = kind === "master";
   const sealed = kind !== "single";
-  const p = product || { id: "", name: "", set_id: "", number: "", rarity: "", condition: "NM", lang: "PT", finish: sealed ? "Lacrado" : "Normal", qty: 1, price: "" };
+  const p = product || { id: "", name: "", set_id: "", number: "", rarity: "", condition: master ? "Completo" : "NM", lang: "PT", finish: master ? "Master Set" : sealed ? "Lacrado" : "Normal", qty: 1, price: "" };
   const preview = editor.image || "";
-  const search = sealed ? `
+  const search = master ? "" : sealed ? `
       <label>Coleção do produto<input id="sealed-q" type="search" placeholder="Evoluções Prismáticas" autocomplete="off" /></label>
       <div id="sealed-types" class="types"></div>
       <div id="sealed-hits" class="hits"></div>` : `
@@ -345,8 +337,8 @@ function editorHtml() {
       <div id="card-hits" class="hits"></div>`;
   return `
     <form id="editor-form" class="editor" method="post" action="/admin">
-      <h2>${product ? "Editar" : kind === "presale" ? "Nova pré-venda" : sealed ? "Novo lacrado" : "Nova carta"}</h2>
-      <input type="hidden" name="kind" value="${kind === "single" ? "single" : kind === "presale" ? "presale" : "sealed"}" />
+      <h2>${product ? "Editar" : master ? "Novo master set" : kind === "presale" ? "Nova pré-venda" : sealed ? "Novo lacrado" : "Nova carta"}</h2>
+      <input type="hidden" name="kind" value="${kind === "single" ? "single" : kind === "presale" ? "presale" : master ? "master" : "sealed"}" />
       ${search}
       ${preview ? `<img class="preview" id="photo-preview" alt="" src="${esc(preview)}" data-card />` : `<p class="muted" id="photo-preview">Sem foto</p>`}
       <div class="actions">
@@ -366,6 +358,7 @@ function editorHtml() {
       ${sealed ? `<input type="hidden" name="condition" value="${esc(p.condition || "NM")}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
       <div class="two">${field("qty", "Quantidade", p.qty, "number")}${field("price", "Preço", p.price === 0 || p.price ? p.price : "", "text")}</div>
       ${kind === "presale" ? `<p class="muted">Para aparecer como pré-venda, o código precisa começar com me6-.</p>` : ""}
+      ${master ? `<p class="muted">Esse master set completo entra à venda na loja. O código precisa começar com master-.</p>` : ""}
       <div class="actions">
         <button class="solid" type="submit">Salvar</button>
         ${product ? `<button class="ghost" type="button" id="copy">Duplicar</button>` : ""}
@@ -504,17 +497,28 @@ function openEditor(product, kind) {
   bannerEditing = null;
   bannerImage = "";
   tabEditing = null;
+  const nextKind = product ? displayKind(product) : kind;
   editor = {
     product: product || null,
-    kind: product ? (displayKind(product) === "single" ? "single" : displayKind(product)) : kind,
+    kind: nextKind,
     image: product?.image || "",
     cards: [],
     chosen: "",
     sealed: [],
     sealedType: "Todos",
   };
-  if (view !== "stock" && view !== "home" && view !== "inventory") view = "stock";
+  if (nextKind === "master") view = "master";
+  else if (view !== "stock" && view !== "home" && view !== "inventory") view = "stock";
   render();
+  document.getElementById("editor")?.scrollIntoView({ block: "start" });
+  if (product && nextKind !== "single") {
+    const query = product.name || setName(product.set_id);
+    const input = document.getElementById("sealed-q");
+    if (input && query) {
+      input.value = query;
+      runSealedSearch(query);
+    }
+  }
 }
 
 function chooseSet(set) {
@@ -642,10 +646,12 @@ async function runSealedSearch(text) {
 function applySealed(item) {
   const form = document.getElementById("editor-form");
   const draft = sealedDraft(item, { id: form.elements.id.value, finish: form.elements.finish.value, qty: form.elements.qty.value, lang: form.elements.lang.value });
-  if (!form.elements.id.value) form.elements.id.value = draft.id;
-  form.elements.name.value = draft.name;
-  form.elements.rarity.value = draft.rarity;
-  form.elements.finish.value = draft.finish;
+  if (!form.elements.name.value.trim()) {
+    if (!form.elements.id.value) form.elements.id.value = draft.id;
+    form.elements.name.value = draft.name;
+    form.elements.rarity.value = draft.rarity;
+    form.elements.finish.value = draft.finish;
+  }
   editor.image = draft.image;
   showPreview(draft.image);
 }
@@ -688,6 +694,10 @@ async function saveProduct(event) {
   if (!built.ok) { fail(built.error); return; }
   if (kind === "presale" && !built.row.id.startsWith("me6-")) {
     fail("Para aparecer como pré-venda, o código precisa começar com me6-.");
+    return;
+  }
+  if (kind === "master" && !built.row.id.startsWith("master-")) {
+    fail("Para aparecer como master set, o código precisa começar com master-.");
     return;
   }
   const set = knownSets().find((item) => item.id === built.row.set_id);
@@ -749,44 +759,6 @@ async function copyProduct() {
   const { error } = await sb.from("products").insert(copy);
   message = error ? error.message : "Item duplicado.";
   editor = null;
-  await reload();
-}
-
-async function loadOfficial() {
-  try {
-    const raw = sessionStorage.getItem(OFFICIAL_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-    }
-  } catch { /* busca de novo */ }
-  const list = await fetchOfficialSets();
-  try { sessionStorage.setItem(OFFICIAL_KEY, JSON.stringify(list.map(slimOfficialSet))); } catch { /* segue sem cache */ }
-  return list;
-}
-
-async function openMaster() {
-  if (!officialSets) {
-    officialError = "";
-    render();
-    try {
-      officialSets = await loadOfficial();
-      officialError = "";
-    } catch {
-      officialError = "Falha ao consultar as coleções.";
-    }
-  }
-  render();
-}
-
-async function adoptSet(id) {
-  const set = (officialSets || []).find((item) => item.id === id);
-  if (!set || sets.some((item) => item.id === id)) return;
-  const sort = sets.reduce((max, item) => Math.max(max, Number(item.sort) || 0), 0) + 1;
-  const built = storeSetFromOfficial(set, shopNames(), sort);
-  if (!built.ok) { message = built.error; render(); return; }
-  const { error } = await sb.from("sets").upsert(built.row, { onConflict: "id", ignoreDuplicates: true });
-  message = error ? error.message : "Coleção na loja.";
   await reload();
 }
 
@@ -892,12 +864,11 @@ app.addEventListener("click", async (event) => {
     bannerEditing = null;
     tabEditing = null;
     message = "";
-    if (view === "master") { await openMaster(); return; }
     if (view === "visits" || view === "banners" || view === "tabs") await reload();
     else render();
     return;
   }
-  if (event.target.id === "logout") {
+  if (event.target.closest("[data-logout]")) {
     await sb.auth.signOut();
     session = null;
     editor = null;
@@ -907,6 +878,7 @@ app.addEventListener("click", async (event) => {
   if (event.target.id === "add-card") { openEditor(null, "single"); return; }
   if (event.target.id === "add-sealed") { openEditor(null, "sealed"); return; }
   if (event.target.id === "add-presale") { openEditor(null, "presale"); return; }
+  if (event.target.id === "add-master") { openEditor(null, "master"); return; }
   if (event.target.id === "editor-cancel") { editor = null; render(); return; }
   if (event.target.id === "photo-clear") { editor.image = ""; showPreview(""); return; }
   if (event.target.id === "condition-add") {
@@ -936,8 +908,6 @@ app.addEventListener("click", async (event) => {
   }
   const printing = event.target.closest("[data-print]");
   if (printing) { applyCard(editor.printings[Number(printing.dataset.print)].card); return; }
-  const useSet = event.target.closest("[data-use-set]");
-  if (useSet) { await adoptSet(useSet.dataset.useSet); return; }
   const setHit = event.target.closest("[data-set-id]");
   if (setHit) { chooseSet(knownSets().find((set) => set.id === setHit.dataset.setId)); return; }
   const sealType = event.target.closest("[data-seal-type]");
@@ -1005,15 +975,6 @@ app.addEventListener("input", (event) => {
     bindSetLogos(box);
     return;
   }
-  if (event.target.id === "master-q") {
-    masterQuery = event.target.value;
-    const box = document.getElementById("master-list");
-    if (box) {
-      box.innerHTML = masterRows();
-      bindSetLogos(box);
-    }
-    return;
-  }
   if (event.target.id === "sealed-q") {
     clearTimeout(searchTimer);
     const value = event.target.value;
@@ -1053,7 +1014,7 @@ app.addEventListener("change", async (event) => {
 });
 
 app.addEventListener("submit", (event) => {
-  const id = event.target?.id;
+  const id = event.target?.getAttribute?.("id") || "";
   if (!["editor-form", "set-form", "banner-form", "tab-form"].includes(id)) return;
   event.preventDefault();
   if (id === "editor-form") saveProduct(event);

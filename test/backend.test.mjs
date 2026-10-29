@@ -8,10 +8,10 @@ import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial }
 import { resizeJpegDataUrl } from "../lib/image-node.mjs";
 import jpeg from "jpeg-js";
 import { buildProduct, displayKind, duplicateProduct, filterProducts, productFromQuery, stepQty } from "../lib/products.mjs";
-import { labelOf, needles, rankGroups, scoreGroup } from "../lib/sealed-match.mjs";
+import { labelOf, matchesProduct, needles, rankGroups, scoreGroup, sealedKind } from "../lib/sealed-match.mjs";
 import { searchSealed } from "../lib/sealed.mjs";
 import { searchSets, setDeleteError } from "../lib/sets.mjs";
-import { buyLabel, onOrder, whatsappText, whatsappUrl } from "../lib/shop.mjs";
+import { buyLabel, forSale, onOrder, whatsappText, whatsappUrl } from "../lib/shop.mjs";
 import { buildTab, publicTabs, reorderTabs } from "../lib/tabs.mjs";
 import { handleTcg } from "../lib/tcg-proxy.mjs";
 import { safeSearch } from "../lib/text.mjs";
@@ -96,6 +96,21 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(labelOf("Elite Trainer Box"), "ETB");
   assert.equal(labelOf("Code Card"), "");
   assert.equal(labelOf("Booster Box Case"), "");
+  assert.equal(labelOf("Chaos Rising Premium Checklane Blister [Pawmot Line]"), "Quádruplo");
+  assert.equal(labelOf("Delta Reign 3 Pack Blister [Seel]"), "Triplo");
+  assert.equal(labelOf("Pitch Black Single Pack Blister [Slowpoke]"), "Unitário");
+  assert.equal(labelOf("Mega Charizard Tin (Mega Charizard Y)"), "Box");
+  assert.equal(labelOf("Ascended Heroes Mini Tin Display"), "");
+  assert.equal(labelOf("Prismatic Evolutions Binder Collection"), "Coleção");
+  assert.equal(labelOf("Prismatic Evolutions 2-Pack Blister [Eevee]"), "Blister");
+  assert.equal(labelOf("Eevee - 143/191"), "");
+  assert.equal(sealedKind("Blister Quádruplo de Caos Ascendente"), "Quádruplo");
+  assert.equal(sealedKind("Mini Booster Box Reinado Delta"), "Mini BB");
+  assert.equal(sealedKind("Coleção Treinador Avan. Equilíbrio Perfeito"), "ETB");
+  assert.equal(sealedKind("UPC Mega Charizard X ex"), "UPC");
+  assert.ok(needles("Therastal").includes("prismatic evolutions"));
+  assert.ok(needles("Reinado Delta").includes("delta reign"));
+  assert.equal(matchesProduct("Mega Charizard Tin (Mega Charizard Y)", "Box Mega Charizard Y"), true);
   const groups = [
     { groupId: 1, name: "Scarlet & Violet: Prismatic Evolutions", abbreviation: "PRE", isSupplemental: false },
     { groupId: 2, name: "Prismatic Evolutions", abbreviation: "OLD", isSupplemental: false },
@@ -120,6 +135,19 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(draft.rarity, "BB");
   assert.equal(draft.finish, "Lacrado");
   assert.equal(draft.number, "");
+  const loose = await searchSealed("Box Mega Charizard Y", {
+    groups: [
+      { groupId: 9, name: "Miscellaneous Cards & Products", isSupplemental: true },
+      { groupId: 4, name: "ME01: Mega Evolution", isSupplemental: false },
+    ],
+    products: (groupId) => groupId === 9 ? [
+      { productId: 671249, name: "Mega Charizard Tin (Mega Charizard Y)", imageUrl: "https://img.example/y.jpg" },
+      { productId: 1, name: "Code Card - Mega Charizard Tin (Mega Charizard Y)", imageUrl: "https://img.example/code.jpg" },
+    ] : [],
+  });
+  assert.equal(loose.length, 1);
+  assert.equal(loose[0].productId, 671249);
+  assert.equal(loose[0].image, "https://img.example/y.jpg");
 });
 
 test("coleção, produto, pré-venda e foto", () => {
@@ -137,6 +165,11 @@ test("coleção, produto, pré-venda e foto", () => {
   assert.equal(fromLink.row.price, 199);
   assert.equal(productFromQuery(new URLSearchParams("q=pikachu")), null);
   assert.equal(displayKind(saved.row), "presale");
+  const master = buildProduct({ id: "sv8", kind: "master", name: "Fagulhas Impetuosas", set_id: "sv8", price: 900 });
+  assert.equal(master.row.id, "master-sv8");
+  assert.equal(master.row.kind, "sealed");
+  assert.equal(master.row.finish, "Master Set");
+  assert.equal(displayKind(master.row), "master");
   assert.equal(stepQty(0, -1), 0);
   assert.equal(stepQty(3, 1), 4);
   assert.equal(duplicateProduct({ id: "sv3-1", name: "Carta", kind: "single", set_id: "sv3" }, "ab12").id, "sv3-1-copia-ab12");
@@ -185,6 +218,9 @@ test("banner, visita e whatsapp", () => {
   const product = { id: "sv1-1", name: "Pikachu", number: "1/165", lang: "PT", condition: "NM", finish: "Normal", price: 10, kind: "single" };
   assert.equal(buyLabel(product), "Comprar");
   assert.equal(onOrder({ finish: "Sob encomenda", price: 0 }), true);
+  assert.equal(forSale({ qty: 0, price: 199, finish: "NM" }), false);
+  assert.equal(forSale({ qty: 1, price: 199, finish: "NM" }), true);
+  assert.equal(forSale({ qty: 0, price: 0, finish: "Sob encomenda" }), true);
   assert.equal(buyLabel({ id: "me6-1", kind: "sealed", finish: "Lacrado", price: 20 }), "Reservar");
   assert.match(whatsappText(product, "Escarlate"), /Coleção: Escarlate/);
   assert.match(whatsappUrl("55 11 99999-9999", product, "Escarlate"), /^https:\/\/api\.whatsapp\.com\/send\?phone=5511999999999&text=/);

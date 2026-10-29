@@ -6,9 +6,10 @@ import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts } from "/lib/products.mjs";
 import { publicBanners } from "/lib/banners.mjs";
 import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
-import { buyLabel, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs";
+import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
 import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
+import { sealedKind } from "/lib/sealed-match.mjs";
 import { esc, safeSearch, slugId } from "/lib/text.mjs";
 
 const main = document.getElementById("conteudo");
@@ -46,6 +47,7 @@ function setOf(id) {
 function kindName(product) {
   const kind = displayKind(product);
   if (kind === "presale") return "Pré-venda";
+  if (kind === "master") return "Master set";
   if (kind === "sealed") return "Lacrado";
   return "Carta avulsa";
 }
@@ -61,9 +63,11 @@ function sectionCount(href) {
   const setId = chosenSetId();
   const list = products.filter((product) => !setId || product.set_id === setId);
   if (href === "#/avulsos") return list.filter((product) => displayKind(product) === "single").length;
-  if (href === "#/prevenda" || href === "#/lacrados") return null;
+  if (href === "#/prevenda") return null;
+  if (href === "#/lacrados") return null;
   if (href === "#/alta") return list.filter((product) => displayKind(product) === "single" && Number(product.price) >= 200).length;
   if (href === "#/colecoes") return sets.filter((set) => products.some((product) => product.set_id === set.id)).length;
+  if (href === "#/masterset") return list.filter((product) => displayKind(product) === "master").length;
   return null;
 }
 
@@ -91,8 +95,13 @@ function buyButton(product, setName) {
 
 function shot(product) {
   const src = productImage(product);
-  if (!src) return `<div class="shot"></div>`;
-  return `<div class="shot"><img data-card src="${esc(src)}" alt="${esc(product.name)}" loading="lazy" /></div>`;
+  const logo = product.set_id ? setLogoSrc(product.set_id) : "";
+  if (!src) {
+    if (!logo) return `<div class="shot"></div>`;
+    return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" /></div>`;
+  }
+  const fallback = logo ? ` data-fallback="${esc(logo)}"` : "";
+  return `<div class="shot"><img data-card src="${esc(src)}" alt="${esc(product.name)}" loading="lazy"${fallback} /></div>`;
 }
 
 function cardHtml(product) {
@@ -118,15 +127,36 @@ function grid(items) {
   return `<div class="grid">${items.map(cardHtml).join("")}</div>`;
 }
 
-function shelf(id, title, href, items) {
+function shelf(id, title, items) {
   return `
     <section class="shelf" id="${id}">
       <div class="section-head">
         <h2>${esc(title)}</h2>
-        <a href="${href}">Ver todos</a>
       </div>
-      ${grid(items.slice(0, 8))}
+      <div class="shelf-scroll">${grid(items)}</div>
     </section>`;
+}
+
+function byPrice(items) {
+  return items.slice().sort((a, b) => Number(b.price) - Number(a.price) || String(a.name).localeCompare(String(b.name), "pt"));
+}
+
+function sealedShelves(list, prefix) {
+  const etbs = byPrice(list.filter((product) => sealedKind(product.name) === "ETB"));
+  const upcs = byPrice(list.filter((product) => sealedKind(product.name) === "UPC"));
+  return {
+    etbs,
+    upcs,
+    html: [
+      etbs.length ? shelf(`${prefix}-etb`, "ETB", etbs) : "",
+      upcs.length ? shelf(`${prefix}-upc`, "UPC", upcs) : "",
+    ].join(""),
+  };
+}
+
+function lacradosPage() {
+  const { html } = sealedShelves(filtered("sealed"), "lacrados");
+  return page("Lacrados", "Booster, caixa e coleção fechada.", html || `<p class="empty">Nenhum item por aqui.</p>`);
 }
 
 function bannerHtml() {
@@ -180,24 +210,26 @@ function home() {
   const setId = chosenSetId();
   const list = products.filter((product) => !setId || product.set_id === setId);
   const alta = list.filter((product) => displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price));
-  const avulsos = list.filter((product) => displayKind(product) === "single");
-  const prevenda = sortPresale(list.filter((product) => displayKind(product) === "presale"));
-  const lacrados = list.filter((product) => displayKind(product) === "sealed");
+  const avulsos = byPrice(list.filter((product) => displayKind(product) === "single"));
+  const sealed = sealedShelves(list.filter((product) => displayKind(product) === "sealed"), "loja");
+  const masters = byPrice(list.filter((product) => displayKind(product) === "master"));
   document.title = "Master Bu";
+  const prevenda = sortPresale(list.filter((product) => displayKind(product) === "presale"));
   const tabs = [
-    avulsos.length ? ["#/avulsos", "/assets/icons/cards.png", "Avulsos"] : null,
-    ["#/prevenda", "/assets/icons/presale.png", "Pré-venda"],
-    ["#/lacrados", "/assets/icons/sealed.png", "Lacrados"],
-  ].filter(Boolean);
+    ["#/avulsos", "/assets/icons/avulsos.png", "Avulsos"],
+    ["#/prevenda", "/assets/icons/prevenda.png", "Pré-venda"],
+    ["#/lacrados", "/assets/icons/lacrados.png", "Lacrados"],
+  ];
   const shelves = [
-    alta.length ? shelf("loja-alta", "Em alta", "#/alta", alta) : "",
-    avulsos.length ? shelf("loja-avulsos", "Avulsos", "#/avulsos", avulsos) : "",
-    prevenda.length ? shelf("loja-prevenda", "Pré-venda", "#/prevenda", prevenda) : "",
-    lacrados.length ? shelf("loja-lacrados", "Lacrados", "#/lacrados", lacrados) : "",
+    alta.length ? shelf("loja-alta", "Em alta", alta) : "",
+    avulsos.length ? shelf("loja-avulsos", "Avulsos", avulsos) : "",
+    prevenda.length ? shelf("loja-prevenda", "Pré-venda", prevenda) : "",
+    sealed.html,
+    masters.length ? shelf("loja-master", "Master sets", masters) : "",
   ].join("");
   return `
     ${bannerHtml()}
-    ${tabs.length ? `<nav class="home-tabs" aria-label="Seções da loja">${tabs.map(([href, icon, label]) => `<a href="${href}"><img src="${icon}" alt="" width="22" height="22" />${label}</a>`).join("")}</nav>` : ""}
+    ${`<nav class="home-tabs" aria-label="Seções da loja">${tabs.map(([href, icon, label]) => `<a href="${href}"><img src="${icon}" alt="" width="22" height="22" />${label}</a>`).join("")}</nav>`}
     ${shelves}`;
 }
 
@@ -208,7 +240,7 @@ function itemPage(id) {
   const qty = onOrder(product) ? "Sob encomenda" : `${product.qty} un.`;
   document.title = `${product.name} · Master Bu`;
   return `
-    <a class="back" href="#/${displayKind(product) === "presale" ? "prevenda" : displayKind(product) === "sealed" ? "lacrados" : "avulsos"}">Voltar</a>
+    <a class="back" href="#/${displayKind(product) === "presale" ? "prevenda" : displayKind(product) === "master" ? "masterset" : displayKind(product) === "sealed" ? "lacrados" : "avulsos"}">Voltar</a>
     <article class="detail">
       ${shot(product)}
       <div>
@@ -297,7 +329,8 @@ function render() {
   } else if (name === "alta") main.innerHTML = page("Em alta", "Cartas a partir de R$ 200.", grid(products.filter((product) => (!chosenSetId() || product.set_id === chosenSetId()) && displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price))));
   else if (name === "avulsos") main.innerHTML = page("Avulsos", "Cartas soltas.", grid(filtered("single")));
   else if (name === "prevenda") main.innerHTML = page("Pré-venda", "Reinado Delta", grid(sortPresale(filtered("presale"))));
-  else if (name === "lacrados") main.innerHTML = page("Lacrados", "Booster, caixa e coleção fechada.", grid(filtered("sealed")));
+  else if (name === "lacrados") main.innerHTML = lacradosPage();
+  else if (name === "masterset") main.innerHTML = page("Master sets", "Coleções completas à venda.", grid(filtered("master")));
   else if (name === "colecoes") main.innerHTML = setsPage();
   else if (name === "home") main.innerHTML = home();
   else main.innerHTML = `<p class="empty">Essa página não existe.</p><p><a href="#/">Voltar ao início</a></p>`;
@@ -315,16 +348,73 @@ function reveal() {
   requestAnimationFrame(() => main.classList.add("is-ready"));
 }
 
+function bindRails() {
+  document.querySelectorAll(".shelf-scroll").forEach((row) => {
+    if (row.dataset.drag) return;
+    row.dataset.drag = "1";
+    let startX = 0;
+    let startScroll = 0;
+    let moved = false;
+    let tracking = false;
+    let pointerId = 0;
+    row.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "touch" || event.button !== 0) return;
+      if (event.target.closest("a.buy")) return;
+      startX = event.clientX;
+      startScroll = row.scrollLeft;
+      moved = false;
+      tracking = true;
+      pointerId = event.pointerId;
+    });
+    row.addEventListener("pointermove", (event) => {
+      if (!tracking || event.pointerId !== pointerId) return;
+      const dx = event.clientX - startX;
+      if (!moved && Math.abs(dx) <= 5) return;
+      if (!moved) {
+        moved = true;
+        row.classList.add("is-drag");
+        row.setPointerCapture(event.pointerId);
+      }
+      row.scrollLeft = startScroll - dx;
+    });
+    const end = (event) => {
+      if (event.pointerId !== pointerId) return;
+      tracking = false;
+      row.classList.remove("is-drag");
+    };
+    row.addEventListener("pointerup", end);
+    row.addEventListener("pointercancel", end);
+    row.addEventListener("click", (event) => {
+      if (!moved) return;
+      event.preventDefault();
+      event.stopPropagation();
+      moved = false;
+    }, true);
+  });
+}
+
 function bindImages() {
   main.querySelectorAll("[data-card]").forEach((img) => {
-    const check = () => { if (isCardBack(img.naturalWidth, img.naturalHeight)) img.hidden = true; };
+    const swap = () => {
+      const fallback = img.dataset.fallback;
+      if (!fallback || img.dataset.swapped) {
+        img.hidden = true;
+        return;
+      }
+      img.dataset.swapped = "1";
+      img.removeAttribute("data-card");
+      img.setAttribute("data-set-logo", "");
+      img.src = fallback;
+    };
+    const check = () => { if (isCardBack(img.naturalWidth, img.naturalHeight)) swap(); };
     img.addEventListener("load", check);
-    img.addEventListener("error", () => { img.hidden = true; });
+    img.addEventListener("error", swap);
     if (img.complete) check();
   });
   bindSetLogos(main);
   paintFilterLogo();
   main.classList.toggle("shine", main.querySelectorAll(".card").length > 1);
+  bindRails();
   reveal();
 }
 
@@ -422,7 +512,7 @@ async function loadShop() {
     if (!tabRes.error && tabRes.data?.length) siteTabs = tabRes.data;
     if (setRes.error || productRes.error || bannerRes.error) throw setRes.error || productRes.error || bannerRes.error;
     sets = setRes.data || [];
-    products = productRes.data || [];
+    products = (productRes.data || []).filter(forSale);
     banners = bannerRes.data || [];
     failed = false;
     fillSets();
