@@ -157,6 +157,7 @@ test("lacrado traduz, pontua e descarta o que não entra na vitrine", async () =
   assert.equal(correctSealedImage({ label: "Quádruplo", name: "Pitch Black Premium Checklane Blister [Gengar Line]" }).image, "/assets/products/sealed-me5-quad-b.png");
   assert.equal(correctSealedImage({ label: "Quádruplo", name: "Mega Evolution Premium Checklane Blister [Tyranitar]" }).image, "/assets/products/sealed-me1-quad.png");
   assert.equal(correctSealedImage({ label: "Quádruplo", name: "Delta Reign Premium Checklane Blister [Seel]" }).image, "/assets/products/sealed-me6-quad-b.png");
+  assert.equal(correctSealedImage({ label: "Unitário", name: "Delta Reign Single Pack Blister" }).image, "/assets/products/sealed-me6-unit.png");
   assert.equal(productImage({ id: "sealed-684460", kind: "sealed", name: "Chaos Rising Premium Checklane Blister", image: "https://tcgplayer-cdn.tcgplayer.com/product/692957_200w.jpg" }), "/assets/products/sealed-me4-quad-b.png");
   assert.equal(productImage({ id: "sealed-684460", kind: "sealed", name: "Chaos Rising Premium Checklane Blister", image: "/assets/products/minha-foto.png" }), "/assets/products/minha-foto.png");
   assert.equal(productImage({ id: "sealed-me5-etb", kind: "sealed", name: "Coleção Treinador Avan. Escuridão Absoluta", image: "https://tcgplayer-cdn.tcgplayer.com/product/692947_200w.jpg" }), "/assets/products/sealed-me5-etb-b.png");
