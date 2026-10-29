@@ -1,12 +1,14 @@
 import { client } from "/js/supabase.js";
-import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, sanitizeImage } from "/lib/image.mjs";
+import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, productImage, sanitizeImage } from "/lib/image.mjs";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
 import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
-import { buildProduct, displayKind, duplicateProduct, filterProducts, removedError, stepQty, stockValue } from "/lib/products.mjs";
+import { SET_PT, fetchOfficialSets, formatRelease, matchOfficial, officialLabel, slimOfficialSet, storeSetFromOfficial } from "/lib/official-sets.mjs";
+import { bindSetLogos, setLogoSrc } from "/js/set-logo.js";
+import { buildProduct, displayKind, duplicateProduct, filterProducts, productFromQuery, removedError, stepQty, stockValue } from "/lib/products.mjs";
 import { money } from "/lib/shop.mjs";
 import { summarizeVisits } from "/lib/visits.mjs";
 import { esc } from "/lib/text.mjs";
@@ -35,8 +37,13 @@ let bannerImage = "";
 let tabEditing = null;
 let searchToken = 0;
 let searchTimer = 0;
+let officialSets = null;
+let officialError = "";
+let masterQuery = "";
+const OFFICIAL_KEY = "mbu.officialSets";
 
-const LANGS = [["PT", "Português"], ["EN", "Inglês"], ["JP", "Japonês"], ["KO", "Coreano"], ["ZH", "Chinês"], ["ES", "Espanhol"], ["FR", "Francês"], ["DE", "Alemão"], ["IT", "Italiano"]];
+const LANGS = [["PT", "Português", "🇧🇷"], ["EN", "Inglês", "🇺🇸"], ["JP", "Japonês", "🇯🇵"], ["KO", "Coreano", "🇰🇷"], ["ZH", "Chinês", "🇨🇳"], ["ES", "Espanhol", "🇪🇸"], ["FR", "Francês", "🇫🇷"], ["DE", "Alemão", "🇩🇪"], ["IT", "Italiano", "🇮🇹"]];
+const CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"];
 
 function setName(id) {
   return sets.find((set) => set.id === id)?.name || id || "Sem coleção";
@@ -78,6 +85,19 @@ function field(name, label, value, type = "text") {
   return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value ?? "")}" /></label>`;
 }
 
+function conditionField(current) {
+  const value = String(current || "NM");
+  const known = CONDITIONS.includes(value) ? CONDITIONS : [...CONDITIONS, value];
+  return `
+    <div>
+      <label>Estado de conservação<select name="condition">${known.map((item) => `<option value="${esc(item)}"${item === value ? " selected" : ""}>${esc(item)}</option>`).join("")}</select></label>
+      <div class="condition-add">
+        <input id="condition-new" type="text" maxlength="24" placeholder="Novo estado" />
+        <button class="ghost" type="button" id="condition-add">Adicionar</button>
+      </div>
+    </div>`;
+}
+
 function catalogRows() {
   return filterProducts(products, { query: stockQuery, kind: stockKind, sets, fields: "catalog" });
 }
@@ -94,7 +114,7 @@ function productRows(list) {
   return list.map((product) => `
     <div class="row">
       ${product.image ? `<img class="thumb" alt="" src="${esc(product.image)}" data-card />` : `<span class="thumb"></span>`}
-      <div><strong>${esc(product.name)}</strong><p>${esc(setName(product.set_id))} · ${esc(kindLabel(product))}${product.number ? ` · ${esc(product.number)}` : ""}</p></div>
+      <div><strong>${esc(product.name)}</strong><p>${LANGS.find((item) => item[0] === product.lang)?.[2] || ""} ${esc(setName(product.set_id))} · ${esc(kindLabel(product))}${product.number ? ` · ${esc(product.number)}` : ""}</p></div>
       <div class="qty-step">
         <button type="button" data-qty="-1" data-id="${esc(product.id)}" aria-label="Diminuir">−</button>
         <b>${esc(product.qty)}</b>
@@ -109,7 +129,10 @@ function productRows(list) {
 }
 
 function shell(title, body) {
-  const item = (id, label) => `<button type="button" data-view="${id}" class="${view === id ? "is-on" : ""}">${label}</button>`;
+  const item = (id, label) => {
+    const icon = id === "master" ? `<img src="/assets/icons/masterset.svg" alt="" width="22" height="22" />` : "";
+    return `<button type="button" data-view="${id}" class="${view === id ? "is-on" : ""}">${icon}${label}</button>`;
+  };
   return `
     <div class="desk">
       <div class="bar">
@@ -123,6 +146,7 @@ function shell(title, body) {
         ${item("stock", "Vitrine")}
         ${item("inventory", "Estoque")}
         ${item("sets", "Coleções")}
+        ${item("master", "Master Set")}
         ${item("banners", "Banners")}
         ${item("tabs", "Abas")}
         ${item("visits", "Visitas")}
@@ -131,6 +155,7 @@ function shell(title, body) {
       ${body}
       <p class="msg" id="desk-msg">${esc(message)}</p>
       <div id="editor"></div>
+      <p class="credit">Site desenvolvido por <a href="https://felipeseussites.vercel.app" target="_blank" rel="noopener noreferrer">Felipe</a></p>
     </div>`;
 }
 
@@ -195,13 +220,50 @@ function setsView() {
     </div>`).join("");
   const current = setEditing ? sets.find((set) => set.id === setEditing) : null;
   return shell("Coleções", `
-    <form id="set-form" class="set-form">
+    <form id="set-form" class="set-form" method="post" action="/admin">
       ${current ? `<p class="muted">${esc(current.id)}</p><input type="hidden" name="id" value="${esc(current.id)}" />` : field("id", "Código", "")}
       ${field("code", "Sigla", current?.code || "")}
       ${field("name", "Nome", current?.name || "")}
       <button class="solid" type="submit">${current ? "Salvar coleção" : "Criar coleção"}</button>
     </form>
     <div>${rows || `<p class="muted">Nenhuma coleção.</p>`}</div>`);
+}
+
+function shopNames() {
+  const names = { ...SET_PT };
+  for (const set of sets) names[set.id] = set.name;
+  return names;
+}
+
+function masterRows() {
+  const names = shopNames();
+  const list = (officialSets || []).filter((set) => matchOfficial(set, masterQuery, names));
+  if (!list.length) return `<p class="muted">Nenhuma coleção.</p>`;
+  const owned = new Set(sets.map((set) => set.id));
+  return list.map((set) => {
+    const inShop = owned.has(set.id);
+    const action = inShop
+      ? `<span class="muted">Na loja</span>`
+      : `<button class="ghost" type="button" data-use-set="${esc(set.id)}">Usar na loja</button>`;
+    return `
+      <div class="row master-row">
+        <img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />
+        <div>
+          <strong>${esc(officialLabel(set, names))}</strong>
+          <p>${esc(set.ptcgoCode || set.id)} · ${esc(set.series || "—")} · ${esc(formatRelease(set.releaseDate) || "—")}</p>
+        </div>
+        ${action}
+      </div>`;
+  }).join("");
+}
+
+function masterView() {
+  const body = officialError
+    ? `<p class="msg">${esc(officialError)}</p>`
+    : officialSets
+      ? `<div class="toolbar"><input id="master-q" type="search" placeholder="Nome, sigla ou código" value="${esc(masterQuery)}" /></div><div id="master-list">${masterRows()}</div>`
+      : `<p class="muted">Carregando coleções…</p>`;
+  return shell("Master Set", body);
 }
 
 function bannersView() {
@@ -277,12 +339,12 @@ function editorHtml() {
       <label>Coleção do produto<input id="sealed-q" type="search" placeholder="Evoluções Prismáticas" autocomplete="off" /></label>
       <div id="sealed-types" class="types"></div>
       <div id="sealed-hits" class="hits"></div>` : `
-      <label>Nome ou número<input id="poke-name" type="search" placeholder="Charizard ou Nome 25/165" autocomplete="off" /></label>
+      <label>Nome<input id="poke-name" type="search" placeholder="Charizard ou Nome 25/165" autocomplete="off" /></label>
       <div id="poke-names" class="names"></div>
       <label>Filtrar impressão<input id="poke-number" type="search" placeholder="Número ou código" autocomplete="off" /></label>
       <div id="card-hits" class="hits"></div>`;
   return `
-    <form id="editor-form" class="editor">
+    <form id="editor-form" class="editor" method="post" action="/admin">
       <h2>${product ? "Editar" : kind === "presale" ? "Nova pré-venda" : sealed ? "Novo lacrado" : "Nova carta"}</h2>
       <input type="hidden" name="kind" value="${kind === "single" ? "single" : kind === "presale" ? "presale" : "sealed"}" />
       ${search}
@@ -298,8 +360,8 @@ function editorHtml() {
       <p class="muted" id="set-chosen">${p.set_id ? esc(setName(p.set_id)) : "Nenhuma coleção escolhida."}</p>
       ${sealed ? `<input type="hidden" name="number" value="" /><input type="hidden" name="rarity" value="${esc(p.rarity || "")}" />` : `<div class="two">${field("number", "Número", p.number)}${field("rarity", "Raridade", p.rarity)}</div>`}
       <div class="two">
-        ${sealed ? "" : field("condition", "Condição", p.condition || "NM")}
-        <label>Idioma<select name="lang">${LANGS.map(([code, label]) => `<option value="${code}"${(p.lang || "PT") === code ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+        ${sealed ? "" : conditionField(p.condition || "NM")}
+        <label>Idioma<select name="lang">${LANGS.map(([code, label, flag]) => `<option value="${code}"${(p.lang || "PT") === code ? " selected" : ""}>${flag} ${label}</option>`).join("")}</select></label>
       </div>
       ${sealed ? `<input type="hidden" name="condition" value="${esc(p.condition || "NM")}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
       <div class="two">${field("qty", "Quantidade", p.qty, "number")}${field("price", "Preço", p.price === 0 || p.price ? p.price : "", "text")}</div>
@@ -326,7 +388,7 @@ function bannerFormHtml() {
   const dest = bannerDest(row);
   const options = [...BANNER_DESTINATIONS.map((item) => [item.id, item.label]), ["external", "Link externo"]];
   return `
-    <form id="banner-form" class="banner-form">
+    <form id="banner-form" class="banner-form" method="post" action="/admin">
       <h2>${row ? "Editar banner" : "Novo banner"}</h2>
       ${bannerImage ? `<img class="preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />` : `<p class="muted" id="banner-preview">Escolha a imagem.</p>`}
       <label class="ghost">Imagem<input id="banner-file" type="file" accept="image/*" hidden /></label>
@@ -345,7 +407,7 @@ function tabFormHtml() {
   const row = tabEditing === "new" ? null : tabs.find((item) => item.id === tabEditing);
   const icon = row?.icon || TAB_ICONS[0].src;
   return `
-    <form id="tab-form" class="banner-form">
+    <form id="tab-form" class="banner-form" method="post" action="/admin">
       <h2>${row ? "Editar aba" : "Nova aba"}</h2>
       ${row ? `<input type="hidden" name="id" value="${esc(row.id)}" />` : field("id", "Código", "")}
       ${field("label", "Nome", row?.label || "")}
@@ -363,7 +425,7 @@ function render() {
   if (!session) {
     app.innerHTML = `
       <div class="login">
-        <form id="login">
+        <form id="login" method="post" action="/admin">
           <img src="/assets/logo.png" alt="Master Bu" width="102" height="88" />
           <h1>Painel</h1>
           <p class="muted">Entre com o e-mail e a senha do administrador.</p>
@@ -372,18 +434,20 @@ function render() {
           <button class="solid" type="submit">Entrar</button>
           <p class="msg" id="login-msg"></p>
           <a href="/">Voltar para a loja</a>
+          <p class="credit">Site desenvolvido por <a href="https://felipeseussites.vercel.app" target="_blank" rel="noopener noreferrer">Felipe</a></p>
         </form>
       </div>`;
     document.getElementById("login").addEventListener("submit", login);
     return;
   }
-  const views = { home: homeView, stock: stockView, inventory: inventoryView, sets: setsView, banners: bannersView, tabs: tabsView, visits: visitsView };
+  const views = { home: homeView, stock: stockView, inventory: inventoryView, sets: setsView, master: masterView, banners: bannersView, tabs: tabsView, visits: visitsView };
   app.innerHTML = (views[view] || homeView)();
   const slot = document.getElementById("editor");
   if (editor?.kind) slot.innerHTML = editorHtml();
   else if (bannerEditing) slot.innerHTML = bannerFormHtml();
   else if (tabEditing) slot.innerHTML = tabFormHtml();
   bindCardImages();
+  bindSetLogos(app);
 }
 
 function bindCardImages() {
@@ -586,6 +650,21 @@ function applySealed(item) {
   showPreview(draft.image);
 }
 
+function withCardImage(row) {
+  if (row.image || row.kind !== "single") return row;
+  return { ...row, image: sanitizeImage(productImage(row)) };
+}
+
+async function persistProduct(row, set) {
+  const setRow = buildSet({ ...set, sort: set.sort ?? sets.length });
+  if (!setRow.ok) return setRow.error;
+  const setSave = await sb.from("sets").upsert(setRow.row);
+  if (setSave.error) return setSave.error.message;
+  const saved = await sb.from("products").upsert(withCardImage(row));
+  if (saved.error) return saved.error.message;
+  return "";
+}
+
 async function saveProduct(event) {
   event.preventDefault();
   const form = new FormData(event.target);
@@ -602,7 +681,7 @@ async function saveProduct(event) {
     finish: form.get("finish"),
     qty: form.get("qty"),
     price: form.get("price"),
-    image: editor.image,
+    image: editor?.image || "",
   });
   const note = document.getElementById("desk-msg");
   const fail = (text) => { message = text; if (note) note.textContent = text; };
@@ -613,15 +692,27 @@ async function saveProduct(event) {
   }
   const set = knownSets().find((item) => item.id === built.row.set_id);
   if (!set) { fail("Escolha a coleção."); return; }
-  const setRow = buildSet({ ...set, sort: set.sort ?? sets.length });
-  if (!setRow.ok) { fail(setRow.error); return; }
-  const setSave = await sb.from("sets").upsert(setRow.row);
-  if (setSave.error) { fail(setSave.error.message); return; }
-  const saved = await sb.from("products").upsert(built.row);
-  if (saved.error) { fail(saved.error.message); return; }
+  const error = await persistProduct(built.row, set);
+  if (error) { fail(error); return; }
   message = "Item salvo.";
   editor = null;
   await reload();
+}
+
+async function saveProductFromQuery() {
+  const built = productFromQuery(new URLSearchParams(location.search));
+  if (!built) return;
+  history.replaceState(null, "", "/admin");
+  if (!built.ok) { message = built.error; return; }
+  const current = sets.find((item) => item.id === built.row.set_id);
+  const set = current || {
+    id: built.row.set_id,
+    name: SET_PT[built.row.set_id] || built.row.set_id,
+    code: built.row.set_id,
+    sort: sets.length,
+  };
+  const error = await persistProduct(built.row, set);
+  message = error || "Item salvo.";
 }
 
 async function changeQty(id, delta) {
@@ -658,6 +749,44 @@ async function copyProduct() {
   const { error } = await sb.from("products").insert(copy);
   message = error ? error.message : "Item duplicado.";
   editor = null;
+  await reload();
+}
+
+async function loadOfficial() {
+  try {
+    const raw = sessionStorage.getItem(OFFICIAL_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  } catch { /* busca de novo */ }
+  const list = await fetchOfficialSets();
+  try { sessionStorage.setItem(OFFICIAL_KEY, JSON.stringify(list.map(slimOfficialSet))); } catch { /* segue sem cache */ }
+  return list;
+}
+
+async function openMaster() {
+  if (!officialSets) {
+    officialError = "";
+    render();
+    try {
+      officialSets = await loadOfficial();
+      officialError = "";
+    } catch {
+      officialError = "Falha ao consultar as coleções.";
+    }
+  }
+  render();
+}
+
+async function adoptSet(id) {
+  const set = (officialSets || []).find((item) => item.id === id);
+  if (!set || sets.some((item) => item.id === id)) return;
+  const sort = sets.reduce((max, item) => Math.max(max, Number(item.sort) || 0), 0) + 1;
+  const built = storeSetFromOfficial(set, shopNames(), sort);
+  if (!built.ok) { message = built.error; render(); return; }
+  const { error } = await sb.from("sets").upsert(built.row, { onConflict: "id", ignoreDuplicates: true });
+  message = error ? error.message : "Coleção na loja.";
   await reload();
 }
 
@@ -763,6 +892,7 @@ app.addEventListener("click", async (event) => {
     bannerEditing = null;
     tabEditing = null;
     message = "";
+    if (view === "master") { await openMaster(); return; }
     if (view === "visits" || view === "banners" || view === "tabs") await reload();
     else render();
     return;
@@ -779,6 +909,17 @@ app.addEventListener("click", async (event) => {
   if (event.target.id === "add-presale") { openEditor(null, "presale"); return; }
   if (event.target.id === "editor-cancel") { editor = null; render(); return; }
   if (event.target.id === "photo-clear") { editor.image = ""; showPreview(""); return; }
+  if (event.target.id === "condition-add") {
+    const input = document.getElementById("condition-new");
+    const select = document.querySelector("#editor-form select[name=condition]");
+    const value = String(input?.value || "").replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 24);
+    if (!value || !select) return;
+    const found = [...select.options].find((option) => option.value.toLowerCase() === value.toLowerCase());
+    if (found) select.value = found.value;
+    else select.add(new Option(value, value, true, true));
+    input.value = "";
+    return;
+  }
   if (event.target.id === "copy") { await copyProduct(); return; }
   if (event.target.id === "remove-open" && editor?.product) { await removeProduct(editor.product.id); return; }
   const edit = event.target.closest("[data-edit]");
@@ -795,6 +936,8 @@ app.addEventListener("click", async (event) => {
   }
   const printing = event.target.closest("[data-print]");
   if (printing) { applyCard(editor.printings[Number(printing.dataset.print)].card); return; }
+  const useSet = event.target.closest("[data-use-set]");
+  if (useSet) { await adoptSet(useSet.dataset.useSet); return; }
   const setHit = event.target.closest("[data-set-id]");
   if (setHit) { chooseSet(knownSets().find((set) => set.id === setHit.dataset.setId)); return; }
   const sealType = event.target.closest("[data-seal-type]");
@@ -856,8 +999,19 @@ app.addEventListener("input", (event) => {
     return;
   }
   if (event.target.id === "set-q") {
-    const hits = searchSets(knownSets(), event.target.value).map((set) => `<button type="button" data-set-id="${esc(set.id)}">${esc(set.name)} · ${esc(set.code)}</button>`).join("");
-    document.getElementById("set-hits").innerHTML = hits;
+    const hits = searchSets(knownSets(), event.target.value).map((set) => `<button type="button" data-set-id="${esc(set.id)}"><img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />${esc(set.name)} · ${esc(set.code)}</button>`).join("");
+    const box = document.getElementById("set-hits");
+    box.innerHTML = hits;
+    bindSetLogos(box);
+    return;
+  }
+  if (event.target.id === "master-q") {
+    masterQuery = event.target.value;
+    const box = document.getElementById("master-list");
+    if (box) {
+      box.innerHTML = masterRows();
+      bindSetLogos(box);
+    }
     return;
   }
   if (event.target.id === "sealed-q") {
@@ -898,19 +1052,26 @@ app.addEventListener("change", async (event) => {
   }
 });
 
-app.addEventListener("submit", async (event) => {
-  if (event.target.id === "editor-form") { await saveProduct(event); return; }
-  if (event.target.id === "set-form") { await saveSet(event); return; }
-  if (event.target.id === "banner-form") { await saveBanner(event); return; }
-  if (event.target.id === "tab-form") await saveTab(event);
+app.addEventListener("submit", (event) => {
+  const id = event.target?.id;
+  if (!["editor-form", "set-form", "banner-form", "tab-form"].includes(id)) return;
+  event.preventDefault();
+  if (id === "editor-form") saveProduct(event);
+  else if (id === "set-form") saveSet(event);
+  else if (id === "banner-form") saveBanner(event);
+  else saveTab(event);
 });
 
 try {
   sb = await client();
   const { data } = await sb.auth.getSession();
   session = data.session;
-  if (session) await reload();
-  else render();
+  if (session) {
+    await reload();
+    const pending = location.search.includes("id=");
+    await saveProductFromQuery();
+    if (pending) await reload();
+  } else render();
 } catch (error) {
   app.innerHTML = `<p class="muted">Não foi possível abrir o painel.</p>`;
   console.error(error);

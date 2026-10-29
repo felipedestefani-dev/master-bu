@@ -9,33 +9,45 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="/css/store.css" />
+  <link rel="stylesheet" href="/css/store.css?v=11" />
 </head>
 <body>
   <header class="top">
-    <a class="logo" href="#/"><img src="/assets/logo.png" alt="Master Bu" width="112" height="96" /></a>
+    <a class="logo" href="#/"><img src="/assets/logo.png" alt="Master Bu" width="64" height="52" /></a>
     <form class="find" role="search">
-      <label class="sr" for="q">Buscar por nome ou número</label>
-      <input id="q" name="q" type="search" placeholder="Buscar por nome ou número" autocomplete="off" enterkeyhint="search" />
+      <label class="search" for="q">
+        <img src="/assets/icons/search.svg" alt="" width="22" height="22" />
+        <input id="q" name="q" type="search" maxlength="80" placeholder="Buscar por nome ou número" autocomplete="off" enterkeyhint="search" />
+      </label>
       <label class="sr" for="colecao">Coleção</label>
-      <select id="colecao" name="colecao">
-        <option value="">Todas as coleções</option>
-      </select>
+      <div class="set-pick">
+        <button type="button" id="colecao-btn" aria-haspopup="listbox" aria-expanded="false">
+          <img id="colecao-logo" data-set-logo alt="" hidden width="56" height="28" />
+          <span id="colecao-label">Todas as coleções</span>
+        </button>
+        <div id="colecao-menu" class="set-menu" role="listbox" hidden></div>
+        <select id="colecao" class="sr" name="colecao" tabindex="-1">
+          <option value="">Todas as coleções</option>
+        </select>
+      </div>
     </form>
-    <nav class="nav" id="nav" aria-label="Loja">
-      <a href="#/"><img src="/assets/icons/home.png" alt="" width="22" height="22" />Início</a>
-      <a href="#/avulsos"><img src="/assets/icons/cards.png" alt="" width="22" height="22" />Avulsos</a>
-      <a href="#/prevenda"><img src="/assets/icons/presale.png" alt="" width="22" height="22" />Pré-venda</a>
-      <a href="#/lacrados"><img src="/assets/icons/sealed.png" alt="" width="22" height="22" />Lacrados</a>
-      <a href="#/colecoes"><img src="/assets/icons/sets.png" alt="" width="22" height="22" />Coleções</a>
-      <a href="#/contato"><img src="/assets/icons/contact.png" alt="" width="22" height="22" />Contato</a>
-    </nav>
+    <div class="menu-wrap">
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav">
+        <img src="/assets/icons/menu.svg" alt="" width="22" height="22" />
+        Menu
+      </button>
+      <nav class="nav" id="nav" hidden aria-label="Loja">
+        <a href="#/"><img src="/assets/icons/home.png" alt="" width="22" height="22" />Início</a>
+        <a href="#/avulsos"><img src="/assets/icons/cards.png" alt="" width="22" height="22" />Avulsos</a>
+        <a href="#/prevenda"><img src="/assets/icons/presale.png" alt="" width="22" height="22" />Pré-venda</a>
+        <a href="#/lacrados"><img src="/assets/icons/sealed.png" alt="" width="22" height="22" />Lacrados</a>
+        <a href="#/colecoes"><img src="/assets/icons/sets.png" alt="" width="22" height="22" />Coleções</a>
+        <a href="#/contato"><img src="/assets/icons/contact.png" alt="" width="22" height="22" />Contato</a>
+      </nav>
+    </div>
   </header>
   <main id="conteudo"><p class="lede">Carregando a vitrine…</p></main>
   <footer class="foot">
-    <strong>Master Bu</strong>
-    <span>MASTER BU LTDA · CNPJ 68.524.572/0001-03</span>
-    <span>Arthur Malvesi e João Vitor de Souza</span>
     <nav aria-label="Institucional">
       <a href="https://www.instagram.com/masterbubr/">Instagram</a>
       <a href="#/contato">Contato</a>
@@ -46,8 +58,9 @@
       <a href="#/trocas">Trocas</a>
       <a href="#/reembolso">Reembolso</a>
     </nav>
+    <p class="credit">Site desenvolvido por <a href="https://felipeseussites.vercel.app" target="_blank" rel="noopener noreferrer">Felipe</a></p>
   </footer>
   <div id="cookies" class="cookies" hidden></div>
-  <script type="module" src="/js/store.js?v=2"></script>
+  <script type="module" src="/js/store.js?v=10"></script>
 </body>
 </html>

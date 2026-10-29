@@ -3,16 +3,18 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildBanner, publicBanners, reorderBanners } from "../lib/banners.mjs";
 import { cardDraft, cardMatches, displayNumber, findDirectCards, parseCardSearch, searchCardNames, searchTokens, setLabel, suggestFinish, translateRarity } from "../lib/cards.mjs";
-import { artFile, isCardBack, plainArt, productImage, sanitizeImage } from "../lib/image.mjs";
+import { artFile, isCardBack, plainArt, productImage, sanitizeImage, setLogoFallback, setLogoSrc } from "../lib/image.mjs";
+import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial } from "../lib/official-sets.mjs";
 import { resizeJpegDataUrl } from "../lib/image-node.mjs";
 import jpeg from "jpeg-js";
-import { buildProduct, displayKind, duplicateProduct, filterProducts, stepQty } from "../lib/products.mjs";
+import { buildProduct, displayKind, duplicateProduct, filterProducts, productFromQuery, stepQty } from "../lib/products.mjs";
 import { labelOf, needles, rankGroups, scoreGroup } from "../lib/sealed-match.mjs";
 import { searchSealed } from "../lib/sealed.mjs";
 import { searchSets, setDeleteError } from "../lib/sets.mjs";
 import { buyLabel, onOrder, whatsappText, whatsappUrl } from "../lib/shop.mjs";
 import { buildTab, publicTabs, reorderTabs } from "../lib/tabs.mjs";
 import { handleTcg } from "../lib/tcg-proxy.mjs";
+import { safeSearch } from "../lib/text.mjs";
 import { buildVisit, summarizeVisits, visitBounds } from "../lib/visits.mjs";
 import { sealedDraft } from "../lib/sealed-draft.mjs";
 
@@ -43,6 +45,18 @@ test("busca de carta ignora acento, shw e palavras curtas soltas", () => {
   assert.equal(cardMatches(charizard, searchTokens("charizard ex")), true);
   assert.equal(cardMatches({ name: "Pikachu", number: "1", set: { id: "sv1", name: "Scarlet" } }, searchTokens("swsh")), false);
   assert.equal(cardMatches(promo, searchTokens("swsh")), true);
+});
+
+test("código de promo busca pelo número", async () => {
+  let seen = "";
+  const fetchPage = async (q) => {
+    seen = q;
+    return [promo];
+  };
+  const result = await searchCardNames("Charizard SWSH133", fetchPage);
+  assert.equal(seen, "number:SWSH133");
+  assert.equal(result.chosen, "Charizard");
+  assert.equal(result.printings[0].displayNumber, "SWSH133");
 });
 
 test("nome único abre as impressões e o número de promo fica em maiúsculas", async () => {
@@ -118,6 +132,10 @@ test("coleção, produto, pré-venda e foto", () => {
   assert.equal(saved.row.kind, "sealed");
   assert.equal(saved.row.price, 13.99);
   assert.equal(saved.row.image, "");
+  const fromLink = productFromQuery(new URLSearchParams("kind=single&id=swshp-SWSH020&name=Pikachu&set_id=swshp&number=SWSH020&rarity=Promo&condition=NM&lang=PT&finish=Normal&qty=1&price=199"));
+  assert.equal(fromLink.row.id, "swshp-SWSH020");
+  assert.equal(fromLink.row.price, 199);
+  assert.equal(productFromQuery(new URLSearchParams("q=pikachu")), null);
   assert.equal(displayKind(saved.row), "presale");
   assert.equal(stepQty(0, -1), 0);
   assert.equal(stepQty(3, 1), 4);
@@ -133,6 +151,12 @@ test("coleção, produto, pré-venda e foto", () => {
     { query: "pikachu", sets: [{ id: "sv1", name: "Escarlate", code: "SVI" }], fields: "catalog" },
   );
   assert.equal(found.length, 1);
+  assert.equal(safeSearch("pikachu'; drop table products;--"), "pikachu drop table products");
+  assert.equal(safeSearch("a".repeat(200)).length, 80);
+  assert.equal(filterProducts(
+    [{ id: "1", name: "Pikachu", number: "25", set_id: "sv1", kind: "single" }],
+    { query: "pikachu' or 1=1;--", setId: "sv1'; drop table products" },
+  ).length, 0);
 });
 
 test("banner, visita e whatsapp", () => {
@@ -167,13 +191,49 @@ test("banner, visita e whatsapp", () => {
   assert.equal(whatsappUrl("", product, "Escarlate"), "");
 });
 
+test("logo da coleção usa o arquivo do me6 e troca o verso pelo símbolo", () => {
+  assert.equal(setLogoSrc("me6"), "/assets/products/me06-logo.png");
+  assert.equal(setLogoSrc("sv3"), "https://images.pokemontcg.io/sv3/logo.png");
+  assert.equal(setLogoFallback("https://images.pokemontcg.io/sv3/logo.png", 640, 892), "https://images.pokemontcg.io/sv3/symbol.png");
+  assert.equal(setLogoFallback("https://images.pokemontcg.io/sv3/logo.png", 80, 120), "https://images.pokemontcg.io/sv3/symbol.png");
+  assert.equal(setLogoFallback("https://images.pokemontcg.io/sv3/symbol.png", 80, 120), "");
+  assert.equal(setLogoFallback("https://images.pokemontcg.io/sv3/logo.png", 400, 120), "https://images.pokemontcg.io/sv3/logo.png");
+  assert.equal(setLogoFallback("/assets/products/me06-logo.png", 0, 1), "");
+});
+
+test("master set pagina o catálogo e marca o nome em português", async () => {
+  assert.equal(formatRelease("2025-01-17"), "17/01/2025");
+  const pre = { id: "sv8pt5", name: "Prismatic Evolutions", ptcgoCode: "PRE", series: "Scarlet & Violet", releaseDate: "2025-01-17" };
+  assert.equal(matchOfficial(pre, "prismáticas", { sv8pt5: "Evoluções Prismáticas" }), true);
+  assert.equal(matchOfficial(pre, "pre", {}), true);
+  assert.equal(matchOfficial(pre, "sv8pt5", {}), true);
+  assert.equal(matchOfficial(pre, "charizard", {}), false);
+  assert.equal(matchOfficial({ id: "sv9", name: "Journey Together", ptcgoCode: "JTG" }, "jornada conjunta", { sv9: "Amigos de Jornada" }), true);
+  const saved = storeSetFromOfficial(pre, { sv8pt5: "Evoluções Prismáticas" }, 4);
+  assert.equal(saved.row.name, "Evoluções Prismáticas");
+  assert.equal(saved.row.code, "PRE");
+  assert.equal(saved.row.sort, 4);
+  let page = 0;
+  const list = await fetchOfficialSets(async (url) => {
+    page += 1;
+    assert.match(url, /orderBy=-releaseDate/);
+    assert.match(url, /pageSize=250/);
+    if (page === 1) {
+      return { ok: true, text: async () => JSON.stringify({ data: Array.from({ length: 250 }, (_, i) => ({ id: `s${i}`, name: `Set ${i}`, ptcgoCode: "AA", series: "X", releaseDate: "2024-01-01" })), totalCount: 251 }) };
+    }
+    return { ok: true, text: async () => JSON.stringify({ data: [pre], totalCount: 251 }) };
+  });
+  assert.equal(list.length, 251);
+  assert.equal(list.at(-1).id, "sv8pt5");
+});
+
 test("proxy de carta tenta três vezes e repassa o JSON", async () => {
   let calls = 0;
   const fail = await handleTcg({ method: "GET", url: "/api/tcg?q=pikachu&page=0&pageSize=999" }, {
     attempts: 3,
     fetchImpl: async (_url, options) => {
       calls += 1;
-      assert.equal(options.headers["User-Agent"], "MasterBu/1.0");
+      assert.equal(options.headers["User-Agent"], "AMD-TCG/1.0");
       throw new Error("rede");
     },
   });

@@ -2,12 +2,14 @@ import { STORE, WHATSAPP_PHONE } from "/js/config.js";
 import { legal } from "/js/legal.js";
 import { client } from "/js/supabase.js";
 import { isCardBack, productImage } from "/lib/image.mjs";
+import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts } from "/lib/products.mjs";
 import { publicBanners } from "/lib/banners.mjs";
 import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
-import { esc } from "/lib/text.mjs";
+import { SET_PT, fetchOfficialSets, officialLabel } from "/lib/official-sets.mjs";
+import { esc, safeSearch, slugId } from "/lib/text.mjs";
 
 const main = document.getElementById("conteudo");
 const qInput = document.getElementById("q");
@@ -16,6 +18,8 @@ const nav = document.getElementById("nav");
 const cookieBox = document.getElementById("cookies");
 
 let sets = [];
+let catalog = [];
+let pickerSets = [];
 let products = [];
 let banners = [];
 let siteTabs = DEFAULT_TABS;
@@ -26,13 +30,17 @@ const LANG = {
   PT: "Português", EN: "Inglês", JP: "Japonês", KO: "Coreano", ZH: "Chinês",
   ES: "Espanhol", FR: "Francês", DE: "Alemão", IT: "Italiano",
 };
+const FLAGS = { PT: "🇧🇷", EN: "🇺🇸", JP: "🇯🇵", KO: "🇰🇷", ZH: "🇨🇳", ES: "🇪🇸", FR: "🇫🇷", DE: "🇩🇪", IT: "🇮🇹" };
+
+function langMark(code) {
+  const name = LANG[code] || code || "";
+  const flag = FLAGS[code] || "";
+  if (!name && !flag) return "—";
+  return `${flag ? `<span class="flag" aria-hidden="true">${flag}</span> ` : ""}${esc(name)}`;
+}
 
 function setOf(id) {
   return sets.find((set) => set.id === id) || { id, name: id || "Sem coleção", code: "" };
-}
-
-function setLogo(id) {
-  return `https://images.pokemontcg.io/${encodeURIComponent(id)}/logo.png`;
 }
 
 function kindName(product) {
@@ -49,8 +57,20 @@ function route() {
   return { name: parts[0] || "home", id };
 }
 
+function sectionCount(href) {
+  const setId = chosenSetId();
+  const list = products.filter((product) => !setId || product.set_id === setId);
+  if (href === "#/avulsos") return list.filter((product) => displayKind(product) === "single").length;
+  if (href === "#/prevenda" || href === "#/lacrados") return null;
+  if (href === "#/alta") return list.filter((product) => displayKind(product) === "single" && Number(product.price) >= 200).length;
+  if (href === "#/colecoes") return sets.filter((set) => products.some((product) => product.set_id === set.id)).length;
+  return null;
+}
+
 function paintNav() {
-  nav.innerHTML = publicTabs(siteTabs).map((tab) => `<a href="${esc(tab.href)}"><img src="${esc(tab.icon)}" alt="" width="22" height="22" />${esc(tab.label)}</a>`).join("");
+  nav.innerHTML = publicTabs(siteTabs)
+    .filter((tab) => { const count = sectionCount(tab.href); return count === null || count > 0; })
+    .map((tab) => `<a href="${esc(tab.href)}"><img src="${esc(tab.icon)}" alt="" width="22" height="22" />${esc(tab.label)}</a>`).join("");
   markNav(route().name);
 }
 
@@ -84,7 +104,7 @@ function cardHtml(product) {
       <a href="#/item/${esc(encodeURIComponent(product.id))}">
         ${shot(product)}
         <h3>${esc(product.name)}</h3>
-        <p class="meta">${esc(set.name)}${number}</p>
+        <p class="meta">${langMark(product.lang)} · ${esc(set.name)}${number}</p>
         <p class="qty">${esc(qty)}</p>
         <p class="price">${esc(priceLabel(product))}</p>
       </a>
@@ -131,31 +151,41 @@ function page(title, lede, body) {
   return `<h1>${esc(title)}</h1>${lede ? `<p class="lede">${esc(lede)}</p>` : ""}${body}`;
 }
 
+function chosenSetId() {
+  const id = slugId(setSelect.value, 48);
+  if (!id) return "";
+  if (pickerSets.some((set) => set.id === id) || sets.some((set) => set.id === id)) return id;
+  return "";
+}
+
 function filtered(kind) {
-  const setId = setSelect.value;
+  const setId = chosenSetId();
   return filterProducts(products, { kind, setId, fields: "store" }).filter((product) => !kind || kind === "all" || displayKind(product) === kind);
 }
 
 function home() {
-  const setId = setSelect.value;
+  const setId = chosenSetId();
   const list = products.filter((product) => !setId || product.set_id === setId);
   const alta = list.filter((product) => displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price));
   const avulsos = list.filter((product) => displayKind(product) === "single");
   const prevenda = list.filter((product) => displayKind(product) === "presale");
   const lacrados = list.filter((product) => displayKind(product) === "sealed");
   document.title = "Master Bu";
+  const tabs = [
+    avulsos.length ? ["#/avulsos", "/assets/icons/cards.png", "Avulsos"] : null,
+    ["#/prevenda", "/assets/icons/presale.png", "Pré-venda"],
+    ["#/lacrados", "/assets/icons/sealed.png", "Lacrados"],
+  ].filter(Boolean);
+  const shelves = [
+    alta.length ? shelf("loja-alta", "Em alta", "#/alta", alta) : "",
+    avulsos.length ? shelf("loja-avulsos", "Avulsos", "#/avulsos", avulsos) : "",
+    prevenda.length ? shelf("loja-prevenda", "Pré-venda", "#/prevenda", prevenda) : "",
+    lacrados.length ? shelf("loja-lacrados", "Lacrados", "#/lacrados", lacrados) : "",
+  ].join("");
   return `
     ${bannerHtml()}
-    <p class="lede">Cartas avulsas e lacrados de Pokémon. A compra segue no WhatsApp.</p>
-    <p class="shortcuts">
-      <a href="#/avulsos">Avulsos</a>
-      <a href="#/prevenda">Pré-venda</a>
-      <a href="#/lacrados">Lacrados</a>
-    </p>
-    ${shelf("loja-alta", "Em alta", "#/alta", alta)}
-    ${shelf("loja-avulsos", "Avulsos", "#/avulsos", avulsos)}
-    ${shelf("loja-prevenda", "Pré-venda", "#/prevenda", prevenda)}
-    ${shelf("loja-lacrados", "Lacrados", "#/lacrados", lacrados)}`;
+    ${tabs.length ? `<nav class="home-tabs" aria-label="Seções da loja">${tabs.map(([href, icon, label]) => `<a href="${href}"><img src="${icon}" alt="" width="22" height="22" />${label}</a>`).join("")}</nav>` : ""}
+    ${shelves}`;
 }
 
 function itemPage(id) {
@@ -172,11 +202,11 @@ function itemPage(id) {
         <h1>${esc(product.name)}</h1>
         <p class="price">${esc(priceLabel(product))}</p>
         <table class="specs">
-          <tr><th>Coleção</th><td><a href="#/set/${esc(encodeURIComponent(set.id))}">${esc(set.name)}</a></td></tr>
+          <tr><th>Coleção</th><td><a class="set-link" href="#/set/${esc(encodeURIComponent(set.id))}">${set.id ? `<img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />` : ""}${esc(set.name)}</a></td></tr>
           <tr><th>Número</th><td>${esc(product.number || "—")}</td></tr>
           <tr><th>Raridade</th><td>${esc(product.rarity || "—")}</td></tr>
           <tr><th>Condição</th><td>${esc(product.condition || "—")}</td></tr>
-          <tr><th>Idioma</th><td>${esc(LANG[product.lang] || product.lang || "—")}</td></tr>
+          <tr><th>Idioma</th><td>${langMark(product.lang)}</td></tr>
           <tr><th>Acabamento</th><td>${esc(product.finish || "—")}</td></tr>
           <tr><th>Quantidade</th><td>${esc(qty)}</td></tr>
           <tr><th>Tipo</th><td>${esc(kindName(product))}</td></tr>
@@ -188,11 +218,11 @@ function itemPage(id) {
 }
 
 function setsPage() {
-  const cards = sets.map((set) => {
+  const cards = sets.filter((set) => products.some((product) => product.set_id === set.id)).map((set) => {
     const count = products.filter((product) => product.set_id === set.id).length;
     return `
       <a class="set-card" href="#/set/${esc(encodeURIComponent(set.id))}">
-        <img data-set-logo alt="" src="${esc(setLogo(set.id))}" />
+        <img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />
         <span><strong>${esc(set.name)}</strong><span>${esc(set.code)}${count ? ` · ${count}` : ""}</span></span>
       </a>`;
   }).join("");
@@ -225,11 +255,11 @@ function render() {
     location.replace("#/");
     return;
   }
-  markNav(current.name);
+  paintNav();
   const { name, id } = current;
-  const query = qInput.value.trim();
+  const query = safeSearch(qInput.value);
   if (query && !failed) {
-    const found = filterProducts(products, { query, setId: setSelect.value, fields: "store" });
+    const found = filterProducts(products, { query, setId: chosenSetId(), fields: "store" });
     main.innerHTML = page(found.length ? `${found.length} ${found.length > 1 ? "resultados" : "resultado"}` : "Nenhum resultado", query, grid(found));
     bindImages();
     return;
@@ -241,13 +271,17 @@ function render() {
     main.innerHTML = page(doc.title, "", `<div class="prose">${doc.body}</div>`);
   } else if (failed) {
     main.innerHTML = `<p class="empty">A vitrine não carregou agora. Tente de novo em instantes.</p>`;
+    reveal();
     return;
   } else if (name === "item") main.innerHTML = itemPage(id);
   else if (name === "set") {
     const set = sets.find((entry) => entry.id === id);
     if (!set) main.innerHTML = `<p class="empty">Coleção não encontrada.</p>`;
-    else main.innerHTML = page(set.name, set.code, grid(products.filter((product) => product.set_id === set.id)));
-  } else if (name === "alta") main.innerHTML = page("Em alta", "Cartas a partir de R$ 200.", grid(products.filter((product) => (!setSelect.value || product.set_id === setSelect.value) && displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price))));
+    else {
+      document.title = `${set.name} · Master Bu`;
+      main.innerHTML = `<h1 class="with-logo">${set.id ? `<img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />` : ""}${esc(set.name)}</h1><p class="lede">${esc(set.code)}</p>${grid(products.filter((product) => product.set_id === set.id))}`;
+    }
+  } else if (name === "alta") main.innerHTML = page("Em alta", "Cartas a partir de R$ 200.", grid(products.filter((product) => (!chosenSetId() || product.set_id === chosenSetId()) && displayKind(product) === "single" && Number(product.price) >= 200).sort((a, b) => Number(b.price) - Number(a.price))));
   else if (name === "avulsos") main.innerHTML = page("Avulsos", "Cartas soltas.", grid(filtered("single")));
   else if (name === "prevenda") main.innerHTML = page("Pré-venda", "Itens para reservar.", grid(filtered("presale")));
   else if (name === "lacrados") main.innerHTML = page("Lacrados", "Booster, caixa e coleção fechada.", grid(filtered("sealed")));
@@ -263,6 +297,11 @@ function render() {
   }
 }
 
+function reveal() {
+  main.classList.remove("is-ready");
+  requestAnimationFrame(() => main.classList.add("is-ready"));
+}
+
 function bindImages() {
   main.querySelectorAll("[data-card]").forEach((img) => {
     const check = () => { if (isCardBack(img.naturalWidth, img.naturalHeight)) img.hidden = true; };
@@ -270,18 +309,20 @@ function bindImages() {
     img.addEventListener("error", () => { img.hidden = true; });
     if (img.complete) check();
   });
-  main.querySelectorAll("[data-set-logo]").forEach((img) => {
-    const symbol = () => {
-      if (img.dataset.step === "symbol") { img.hidden = true; return; }
-      img.dataset.step = "symbol";
-      img.src = img.src.replace("/logo.png", "/symbol.png");
-    };
-    const check = () => {
-      if (!img.naturalWidth || isCardBack(img.naturalWidth, img.naturalHeight) || img.naturalHeight > img.naturalWidth * 1.05) symbol();
-    };
-    img.addEventListener("load", check);
-    img.addEventListener("error", symbol);
-    if (img.complete && img.naturalWidth) check();
+  bindSetLogos(main);
+  paintFilterLogo();
+  main.classList.toggle("shine", main.querySelectorAll(".card").length > 1);
+  reveal();
+}
+
+function paintFilterLogo() {
+  const id = chosenSetId();
+  const label = document.getElementById("colecao-label");
+  const chosen = pickerSets.find((set) => set.id === id) || sets.find((set) => set.id === id);
+  showSetLogo(document.getElementById("colecao-logo"), id);
+  if (label) label.textContent = chosen?.name || "Todas as coleções";
+  document.querySelectorAll("#colecao-menu button").forEach((button) => {
+    button.setAttribute("aria-selected", button.dataset.set === id ? "true" : "false");
   });
 }
 
@@ -297,16 +338,63 @@ function spinHero() {
   const show = (next) => {
     index = next;
     slides.forEach((slide, i) => slide.classList.toggle("is-on", i === index));
-    dots.forEach((dot, i) => dot.classList.toggle("is-on", i === index));
+    dots.forEach((dot, i) => {
+      dot.classList.toggle("is-on", i === index);
+      if (i !== index) return;
+      dot.classList.remove("is-on");
+      void dot.offsetWidth;
+      dot.classList.add("is-on");
+    });
   };
   heroTimer = setInterval(() => show((index + 1) % slides.length), 5000);
   dots.forEach((dot, i) => { dot.onclick = () => show(i); });
 }
 
+function catalogSets() {
+  const names = { ...SET_PT };
+  for (const set of sets) if (set?.name) names[set.id] = set.name;
+  const source = catalog.length
+    ? catalog
+    : Object.keys(SET_PT).map((id) => ({ id, name: SET_PT[id], ptcgoCode: "" }));
+  const seen = new Set();
+  const list = [];
+  for (const set of source) {
+    const id = slugId(set.id, 48);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    list.push({ id, name: officialLabel(set, names) || set.name || id });
+  }
+  for (const set of sets) {
+    const id = slugId(set.id, 48);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    list.push({ id, name: set.name || id });
+  }
+  return list;
+}
+
 function fillSets() {
-  const current = setSelect.value;
-  setSelect.innerHTML = `<option value="">Todas as coleções</option>${sets.map((set) => `<option value="${esc(set.id)}">${esc(set.name)}</option>`).join("")}`;
+  const current = chosenSetId();
+  pickerSets = catalogSets();
+  setSelect.innerHTML = `<option value="">Todas as coleções</option>${pickerSets.map((set) => `<option value="${esc(set.id)}">${esc(set.name)}</option>`).join("")}`;
   if ([...setSelect.options].some((option) => option.value === current)) setSelect.value = current;
+  const menu = document.getElementById("colecao-menu");
+  menu.innerHTML = `<button type="button" role="option" data-set=""><span>Todas as coleções</span></button>${pickerSets.map((set) => `<button type="button" role="option" data-set="${esc(set.id)}"><img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" /><span>${esc(set.name)}</span></button>`).join("")}`;
+  bindSetLogos(menu);
+  paintFilterLogo();
+}
+
+async function loadCatalog() {
+  const key = "mbu.officialSets";
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(key) || "null");
+    if (Array.isArray(cached) && cached.length) return cached;
+  } catch {
+    /* cache inválido */
+  }
+  const list = await fetchOfficialSets();
+  try { sessionStorage.setItem(key, JSON.stringify(list)); } catch { /* sessão cheia */ }
+  return list;
 }
 
 async function loadShop() {
@@ -319,13 +407,17 @@ async function loadShop() {
       sb.from("tabs").select("id,label,href,icon,sort").order("sort"),
     ]);
     if (!tabRes.error && tabRes.data?.length) siteTabs = tabRes.data;
-    paintNav();
     if (setRes.error || productRes.error || bannerRes.error) throw setRes.error || productRes.error || bannerRes.error;
     sets = setRes.data || [];
     products = productRes.data || [];
     banners = bannerRes.data || [];
     failed = false;
     fillSets();
+    loadCatalog().then((list) => {
+      catalog = Array.isArray(list) ? list : [];
+      fillSets();
+      render();
+    }).catch((error) => console.error(error));
   } catch (error) {
     failed = true;
     paintNav();
@@ -387,6 +479,42 @@ function paintCookies() {
 document.querySelector(".find").addEventListener("submit", (event) => event.preventDefault());
 qInput.addEventListener("input", render);
 setSelect.addEventListener("change", render);
+const setButton = document.getElementById("colecao-btn");
+const setMenu = document.getElementById("colecao-menu");
+setButton.addEventListener("click", () => {
+  const open = setMenu.hidden;
+  setMenu.hidden = !open;
+  setButton.setAttribute("aria-expanded", String(open));
+});
+setMenu.addEventListener("click", (event) => {
+  const choice = event.target.closest("[data-set]");
+  if (!choice) return;
+  setSelect.value = slugId(choice.dataset.set, 48);
+  setMenu.hidden = true;
+  setButton.setAttribute("aria-expanded", "false");
+  setSelect.dispatchEvent(new Event("change"));
+});
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".set-pick")) return;
+  setMenu.hidden = true;
+  setButton.setAttribute("aria-expanded", "false");
+});
+const menuButton = document.getElementById("menu-btn");
+menuButton.addEventListener("click", () => {
+  const open = nav.hidden;
+  nav.hidden = !open;
+  menuButton.setAttribute("aria-expanded", String(open));
+});
+nav.addEventListener("click", (event) => {
+  if (!event.target.closest("a")) return;
+  nav.hidden = true;
+  menuButton.setAttribute("aria-expanded", "false");
+});
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".menu-wrap")) return;
+  nav.hidden = true;
+  menuButton.setAttribute("aria-expanded", "false");
+});
 window.addEventListener("hashchange", () => { render(); trackVisit(); });
 document.addEventListener("click", (event) => {
   const link = event.target.closest("[data-scroll]");
