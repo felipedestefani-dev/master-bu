@@ -273,6 +273,7 @@ h2 { font-size: 1.35rem; }
   transition: opacity .8s ease;
 }
 .hero-rotator a.is-on { position: relative; opacity: 1; z-index: 1; pointer-events: auto; }
+.hero-rotator picture { display: block; }
 .hero-rotator img {
   width: 100%;
   height: auto;
@@ -659,9 +660,9 @@ h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; }
   border-radius: 14px;
 }
 .meta,
-.qty { color: #8e8e93; }
-.grade { border: 0; border-radius: 6px; background: rgba(29, 78, 216, .1); color: var(--blue); }
-.card h3 { color: var(--ink); font-weight: 700; }
+.qty { color: var(--blue); }
+.grade { border: 0; border-radius: 999px; background: #e8efff; color: var(--blue); }
+.card h3 { color: var(--blue-dark); font-weight: 700; }
 .card:active { transform: scale(.97); }
 .back { background: none; padding-left: 0; color: var(--blue); }
 .back:hover { background: none; color: var(--blue-dark); }
@@ -701,19 +702,17 @@ main > .home-tabs { gap: 22px; padding: 4px 0 0; background: transparent; }
 .home-tabs a:hover { color: var(--ink); transform: translateY(-3px); }
 .card {
   padding: 10px;
-  border: 1px solid rgba(255, 255, 255, .75);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, .58);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  box-shadow: 0 8px 30px rgba(22, 58, 158, .1);
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(29, 78, 216, .14);
 }
-.card:hover { transform: translateY(-6px); border-color: #fff; box-shadow: 0 20px 44px rgba(22, 58, 158, .18); }
-.card .shot { border-radius: 18px; background: rgba(255, 255, 255, .7); }
+.card:hover { transform: translateY(-8px); border-color: transparent; box-shadow: 0 22px 40px rgba(22, 58, 158, .16); }
+.card .shot { border-radius: 16px; background: #f4f7ff; }
 .card .buy {
   height: 40px;
   min-height: 40px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ef3b32, var(--red-dark));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 6px 16px rgba(226, 35, 26, .28);
+  background: var(--red);
+  box-shadow: none;
 }

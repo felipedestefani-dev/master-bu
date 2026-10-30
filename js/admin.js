@@ -1,9 +1,9 @@
 import { client } from "/js/supabase.js";
-import { BANNER_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, masterPhoto, productImage, sanitizeImage } from "/lib/image.mjs?v=4";
+import { BANNER_MAX_WIDTH, BANNER_PC_MAX_WIDTH, BANNER_QUALITY, PHOTO_MAX_SIDE, PHOTO_QUALITY, isCardBack, masterPhoto, productImage, sanitizeImage } from "/lib/image.mjs?v=5";
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=4";
-import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
+import { BANNER_DESTINATIONS, buildBanner, buildDesktopBanner, desktopBannerId, desktopBanners, publicBanners, reorderBanners } from "/lib/banners.mjs?v=2";
 import { catalogShelves, placeProduct, shelfKey, shelvesFromProducts, shelvesToBanners } from "/lib/shelves.mjs?v=2";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
 import { SET_PT } from "/lib/official-sets.mjs";
@@ -32,6 +32,7 @@ let visitTo = "";
 let editor = null;
 let setEditing = null;
 let bannerEditing = null;
+let bannerPcImage = "";
 let bannerImage = "";
 let shelfDraft = null;
 let searchToken = 0;
@@ -323,11 +324,12 @@ function masterView() {
 
 function bannersView() {
   const list = publicBanners(banners);
+  const wide = desktopBanners(banners);
   const destination = (href) => BANNER_DESTINATIONS.find((item) => item.href === href)?.label || href;
   const rows = list.map((banner, index) => `
     <div class="row banner-row">
       <span class="thumb-box"><img src="${esc(banner.image)}" alt="" /></span>
-      <div class="row-name"><strong>${esc(banner.label)}</strong><p>${index + 1}º · leva para ${esc(destination(banner.href))}</p></div>
+      <div class="row-name"><strong>${esc(banner.label)}</strong><p>${index + 1}º · leva para ${esc(destination(banner.href))}</p><p>${wide.has(banner.id) ? "Celular e computador" : "Só celular (o computador usa a mesma imagem)"}</p></div>
       <div class="row-tools">
         <div class="actions">
           <button class="ghost icon-btn" type="button" data-banner-move="${esc(banner.id)}" data-dir="-1" aria-label="Subir"${index === 0 ? " disabled" : ""}>↑</button>
@@ -488,10 +490,18 @@ function bannerFormHtml() {
   return `
     <form id="banner-form" class="editor" method="post" action="/admin">
       <h2>${row ? "Editar banner" : "Novo banner"}</h2>
+      <h3 class="banner-part">Celular</h3>
       ${bannerImage ? `<img class="banner-preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />` : `<p class="banner-preview is-empty" id="banner-preview">Nenhuma imagem escolhida</p>`}
       <div class="actions">
         <label class="ghost file-btn">${bannerImage ? "Trocar imagem" : "Escolher imagem"}<input id="banner-file" type="file" accept="image/*" hidden /></label>
-        <span class="muted hint">Formato largo, 3 por 1 (ex.: 2048 × 682).</span>
+        <span class="muted hint">Formato 3 por 1 (ex.: 2048 × 682).</span>
+      </div>
+      <h3 class="banner-part">Computador <span class="muted">(opcional)</span></h3>
+      ${bannerPcImage ? `<img class="banner-preview is-wide" id="banner-pc-preview" alt="" src="${esc(bannerPcImage)}" />` : `<p class="banner-preview is-wide is-empty" id="banner-pc-preview">Sem imagem: o computador mostra a do celular</p>`}
+      <div class="actions">
+        <label class="ghost file-btn">${bannerPcImage ? "Trocar imagem" : "Escolher imagem"}<input id="banner-pc-file" type="file" accept="image/*" hidden /></label>
+        ${bannerPcImage ? `<button class="ghost danger" type="button" id="banner-pc-clear">Tirar</button>` : ""}
+        <span class="muted hint">Mais baixo, 5 por 1 (ex.: 2880 × 576).</span>
       </div>
       ${field("label", "Nome", row?.label || "")}
       <label>Destino ao clicar<select name="dest" id="banner-dest">${options.map(([value, label]) => `<option value="${value}"${dest === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
@@ -942,8 +952,13 @@ async function saveBanner(event) {
   }, publicBanners(banners));
   if (!built.ok) { notify(built.error); return; }
   const { error } = await sb.from("banners").upsert(built.row);
-  message = error ? error.message : "Banner salvo.";
-  if (!error) { bannerEditing = null; bannerImage = ""; editor = null; }
+  if (error) { notify(error.message); return; }
+  const desktop = buildDesktopBanner(built.row.id, bannerPcImage);
+  const pcSave = desktop
+    ? await sb.from("banners").upsert(desktop)
+    : await sb.from("banners").delete().eq("id", desktopBannerId(built.row.id));
+  message = pcSave.error ? pcSave.error.message : "Banner salvo.";
+  if (!pcSave.error) { bannerEditing = null; bannerImage = ""; bannerPcImage = ""; editor = null; }
   await reload();
 }
 
@@ -1003,7 +1018,7 @@ async function saveShelves() {
 }
 
 async function removeBanner(id) {
-  const { error } = await sb.from("banners").delete().eq("id", id);
+  const { error } = await sb.from("banners").delete().in("id", [id, desktopBannerId(id)]);
   message = error ? error.message : "Banner excluído.";
   bannerEditing = null;
   await reload();
@@ -1103,13 +1118,20 @@ app.addEventListener("click", async (event) => {
     if (confirmRemove(sets.find((set) => set.id === setRemove.dataset.setRemove)?.name)) await removeSet(setRemove.dataset.setRemove);
     return;
   }
-  if (event.target.id === "add-banner") { editor = null; bannerEditing = "new"; bannerImage = ""; render(); scrollToEditor(); return; }
-  if (event.target.id === "banner-cancel") { bannerEditing = null; bannerImage = ""; render(); return; }
+  if (event.target.id === "add-banner") { editor = null; bannerEditing = "new"; bannerImage = ""; bannerPcImage = ""; render(); scrollToEditor(); return; }
+  if (event.target.id === "banner-cancel") { bannerEditing = null; bannerImage = ""; bannerPcImage = ""; render(); return; }
+  if (event.target.id === "banner-pc-clear") {
+    bannerPcImage = "";
+    document.getElementById("banner-pc-preview").outerHTML = `<p class="banner-preview is-wide is-empty" id="banner-pc-preview">Sem imagem: o computador mostra a do celular</p>`;
+    event.target.remove();
+    return;
+  }
   const banner = event.target.closest("[data-banner]");
   if (banner) {
     editor = null;
     bannerEditing = banner.dataset.banner;
     bannerImage = banners.find((item) => item.id === bannerEditing)?.image || "";
+    bannerPcImage = desktopBanners(banners).get(bannerEditing) || "";
     render();
     scrollToEditor();
     return;
@@ -1230,6 +1252,13 @@ app.addEventListener("change", async (event) => {
       const preview = document.getElementById("banner-preview");
       if (preview.tagName === "IMG") preview.src = bannerImage;
       else preview.outerHTML = `<img class="banner-preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />`;
+      event.target.parentElement.firstChild.textContent = "Trocar imagem";
+    } catch (error) { notify(error.message); }
+  }
+  if (event.target.id === "banner-pc-file" && event.target.files[0]) {
+    try {
+      bannerPcImage = sanitizeImage(await readPhoto(event.target.files[0], { maxWidth: BANNER_PC_MAX_WIDTH, quality: BANNER_QUALITY }));
+      document.getElementById("banner-pc-preview").outerHTML = `<img class="banner-preview is-wide" id="banner-pc-preview" alt="" src="${esc(bannerPcImage)}" />`;
       event.target.parentElement.firstChild.textContent = "Trocar imagem";
     } catch (error) { notify(error.message); }
   }

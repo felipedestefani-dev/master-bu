@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildBanner, publicBanners, reorderBanners } from "../lib/banners.mjs";
+import { buildBanner, buildDesktopBanner, desktopBanners, publicBanners, reorderBanners } from "../lib/banners.mjs";
 import { cardDraft, cardMatches, displayNumber, findDirectCards, parseCardSearch, searchCardNames, searchTokens, setLabel, suggestFinish, translateRarity } from "../lib/cards.mjs";
 import { artFile, isCardBack, masterPhoto, plainArt, productImage, sanitizeImage, setLogoFallback, setLogoSrc } from "../lib/image.mjs";
 import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial } from "../lib/official-sets.mjs";
@@ -235,6 +235,11 @@ test("banner, visita e whatsapp", () => {
     { id: "__ready", image: "", href: "#/", label: "", scroll: "", sort: 1000 },
   ];
   assert.deepEqual(reorderBanners(publicBanners(rows), "a", 1).map((item) => item.id), ["b", "a"]);
+  const desktop = buildDesktopBanner("a", "https://exemplo.com/a-pc.jpg");
+  assert.deepEqual([desktop.id, desktop.scroll], ["a-pc", "pc"]);
+  assert.deepEqual(publicBanners([...rows, desktop]).map((item) => item.id), ["a", "b"]);
+  assert.equal(desktopBanners([...rows, desktop]).get("a"), "https://exemplo.com/a-pc.jpg");
+  assert.equal(buildDesktopBanner("a", ""), null);
   const now = new Date("2026-03-15T15:00:00Z");
   assert.deepEqual(visitBounds("prev", { now }), { from: "2026-02-01", to: "2026-02-28" });
   const summary = summarizeVisits([

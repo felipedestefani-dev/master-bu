@@ -4,7 +4,7 @@ import { client } from "/js/supabase.js";
 import { isCardBack, masterPhoto, productImage } from "/lib/image.mjs?v=4";
 import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts, productCondition } from "/lib/products.mjs?v=3";
-import { publicBanners } from "/lib/banners.mjs";
+import { desktopBanners, publicBanners } from "/lib/banners.mjs?v=2";
 import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
@@ -26,6 +26,7 @@ let banners = [];
 let siteTabs = DEFAULT_TABS;
 let failed = false;
 const tracked = new Set();
+const DESKTOP_HERO = "(min-width: 760px)";
 
 const LANG = {
   PT: "Português", EN: "Inglês", JP: "Japonês", KO: "Coreano", ZH: "Chinês",
@@ -166,6 +167,7 @@ function lacradosPage() {
 function bannerHtml() {
   const slides = publicBanners(banners);
   if (!slides.length) return "";
+  const wide = desktopBanners(banners);
   return `
     <div class="hero">
       <div class="hero-rotator">
@@ -174,7 +176,9 @@ function bannerHtml() {
           const external = href.startsWith("https://");
           const scroll = item.scroll ? ` data-scroll="${esc(item.scroll)}"` : "";
           const target = external ? ` target="_blank" rel="noopener noreferrer"` : "";
-          return `<a class="${index === 0 ? "is-on" : ""}" href="${esc(href)}"${target}${scroll}><img src="${esc(item.image)}" alt="${esc(item.label || "Banner")}" /></a>`;
+          const desktop = wide.get(item.id);
+          const source = desktop ? `<source media="${DESKTOP_HERO}" srcset="${esc(desktop)}" />` : "";
+          return `<a class="${index === 0 ? "is-on" : ""}" href="${esc(href)}"${target}${scroll}><picture>${source}<img src="${esc(item.image)}" alt="${esc(item.label || "Banner")}" /></picture></a>`;
         }).join("")}
       </div>
       ${slides.length > 1 ? `<div class="hero-dots">${slides.map((_, index) => `<button type="button" class="${index === 0 ? "is-on" : ""}" aria-label="Banner ${index + 1}"></button>`).join("")}</div>` : ""}
@@ -506,10 +510,11 @@ async function loadCatalog() {
 async function loadShop() {
   try {
     const sb = await client();
+    const bannerQuery = sb.from("banners").select("id,image,href,label,scroll,sort").order("sort");
     const [setRes, productRes, bannerRes, tabRes] = await Promise.all([
       sb.from("sets").select("id,name,code,sort").order("sort"),
       sb.from("products").select("id,kind,name,set_id,number,rarity,condition,lang,finish,qty,price,image").order("name"),
-      sb.from("banners").select("id,image,href,label,scroll,sort").order("sort"),
+      matchMedia(DESKTOP_HERO).matches ? bannerQuery : bannerQuery.neq("scroll", "pc"),
       sb.from("tabs").select("id,label,href,icon,sort").order("sort"),
     ]);
     if (!tabRes.error && tabRes.data?.length) siteTabs = tabRes.data;
