@@ -122,7 +122,7 @@ function cardHtml(product) {
       <a href="#/item/${esc(encodeURIComponent(product.id))}">
         ${shot(product)}
         <h3>${esc(product.name)}</h3>
-        <p class="marks">${FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : ""}<span class="grade">${esc(productCondition(product))}</span></p>
+        <p class="marks">${FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : ""}<span class="grade${productCondition(product) === "Lacrado" ? " is-sealed" : ""}">${esc(productCondition(product))}</span></p>
         <p class="meta">${esc(set.name)}${number}</p>
         <p class="qty">${esc(qty)}</p>
         <p class="price">${esc(priceLabel(product))}</p>
@@ -227,9 +227,9 @@ function home() {
   document.title = "Master Bu";
   const prevenda = sortPresale(list.filter((product) => displayKind(product) === "presale"));
   const tabs = [
-    ["#/avulsos", "/assets/icons/avulsos.png", "Avulsos"],
-    ["#/prevenda", "/assets/icons/prevenda.png", "Pré-venda"],
-    ["#/lacrados", "/assets/icons/lacrados.png", "Lacrados"],
+    ["#/avulsos", "Avulsos"],
+    ["#/prevenda", "Pré-venda"],
+    ["#/lacrados", "Lacrados"],
   ];
   const shelves = [
     alta.length ? shelf("loja-alta", "Em alta", alta) : "",
@@ -240,7 +240,7 @@ function home() {
   ].join("");
   return `
     ${bannerHtml()}
-    ${`<nav class="home-tabs" aria-label="Seções da loja">${tabs.map(([href, icon, label]) => `<a href="${href}"><img src="${icon}" alt="" width="22" height="22" />${label}</a>`).join("")}</nav>`}
+    ${`<nav class="home-tabs" aria-label="Seções da loja">${tabs.map(([href, label]) => `<a href="${href}">${label}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>`).join("")}</nav>`}
     ${shelves}`;
 }
 
