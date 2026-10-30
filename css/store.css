@@ -758,8 +758,6 @@ main > .home-tabs {
   backdrop-filter: blur(8px);
   box-shadow: 0 2px 8px rgba(15, 23, 42, .1);
 }
-.card .qty { display: flex; align-items: center; gap: 6px; }
-.card .flag { margin: 0; font-size: .9rem; line-height: 1; }
 .card h3 { margin-top: 2px; color: #0f172a; }
 .card .meta, .card .qty { color: #64748b; }
 .card .price { font-size: 1.12rem; font-weight: 800; letter-spacing: -.02em; }

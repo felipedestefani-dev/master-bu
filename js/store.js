@@ -118,7 +118,6 @@ function cardHtml(product) {
   const number = product.number ? ` · ${esc(product.number)}` : "";
   const qty = onOrder(product) ? "Sob encomenda" : Number(product.qty) > 0 ? `${product.qty} un.` : "Esgotado";
   const condition = productCondition(product);
-  const flag = FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : "";
   const marks = condition && condition !== "Lacrado" ? `<span class="grade">${esc(condition)}</span>` : "";
   return `
     <article class="card">
@@ -127,7 +126,7 @@ function cardHtml(product) {
         <h3>${esc(product.name)}</h3>
         ${marks ? `<p class="marks">${marks}</p>` : ""}
         <p class="meta">${esc(set.name)}${number}</p>
-        <p class="qty">${esc(qty)}${flag}</p>
+        <p class="qty">${esc(qty)}</p>
         <p class="price">${esc(priceLabel(product))}</p>
       </a>
       ${buyButton(product, set.name)}
