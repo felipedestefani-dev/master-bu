@@ -4,7 +4,6 @@ import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNam
 import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=4";
 import { BANNER_DESTINATIONS, buildBanner, publicBanners, reorderBanners } from "/lib/banners.mjs";
-import { TAB_ICONS, buildTab, reorderTabs } from "/lib/tabs.mjs";
 import { catalogShelves, placeProduct, shelfKey, shelvesFromProducts, shelvesToBanners } from "/lib/shelves.mjs?v=2";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
 import { SET_PT } from "/lib/official-sets.mjs";
@@ -20,11 +19,10 @@ let session = null;
 let sets = [];
 let products = [];
 let banners = [];
-let tabs = [];
-let tabsError = "";
 let visits = [];
 let view = "home";
 let message = "";
+let messageTimer = 0;
 let stockQuery = "";
 let stockKind = "all";
 let stockLevel = "all";
@@ -35,13 +33,38 @@ let editor = null;
 let setEditing = null;
 let bannerEditing = null;
 let bannerImage = "";
-let tabEditing = null;
 let shelfDraft = null;
 let searchToken = 0;
 let searchTimer = 0;
 
 const LANGS = [["PT", "Português", "🇧🇷"], ["EN", "Inglês", "🇺🇸"], ["JP", "Japonês", "🇯🇵"], ["KO", "Coreano", "🇰🇷"], ["ZH", "Chinês", "🇨🇳"], ["ES", "Espanhol", "🇪🇸"], ["FR", "Francês", "🇫🇷"], ["DE", "Alemão", "🇩🇪"], ["IT", "Italiano", "🇮🇹"]];
 const CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"];
+const OK_MESSAGE = /salv|atualizad|apagad|excluíd|duplicad/i;
+
+function paintMessage(note) {
+  clearTimeout(messageTimer);
+  note.textContent = message;
+  note.className = `msg${message ? (OK_MESSAGE.test(message) ? " is-ok" : " is-warn") : ""}`;
+  if (message) messageTimer = setTimeout(() => { message = ""; note.className = "msg"; }, 4500);
+}
+
+function notify(text) {
+  message = text || "";
+  const note = document.getElementById("desk-msg");
+  if (note) paintMessage(note);
+}
+
+function confirmRemove(name) {
+  return window.confirm(`Apagar ${name ? `"${name}"` : "este item"}? Isso não pode ser desfeito.`);
+}
+
+function scrollToEditor() {
+  document.getElementById("editor")?.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
+function empty(text) {
+  return `<p class="empty">${esc(text)}</p>`;
+}
 
 function setName(id) {
   return sets.find((set) => set.id === id)?.name || id || "Sem coleção";
@@ -109,7 +132,7 @@ function inventoryRows() {
 }
 
 function productRows(list) {
-  if (!list.length) return `<p class="muted">Nenhum item.</p>`;
+  if (!list.length) return empty("Nenhum item encontrado.");
   return list.map((product) => {
     const master = displayKind(product) === "master";
     const logo = master ? setLogoSrc(product.set_id) : "";
@@ -121,14 +144,14 @@ function productRows(list) {
       : (photo ? `<img class="thumb" alt="" src="${esc(photo)}" data-card />` : `<span class="thumb"></span>`);
     return `
     <div class="row${master ? " master-row" : ""}">
-      ${thumb}
+      <span class="thumb-box">${thumb}</span>
       <div class="row-name"><strong>${esc(product.name)}</strong><p>${LANGS.find((item) => item[0] === product.lang)?.[2] || ""} ${esc(setName(product.set_id))} · ${esc(kindLabel(product))}${product.number ? ` · ${esc(product.number)}` : ""}</p></div>
       <div class="row-tools">
-        <div class="qty-step">
+        <strong class="row-price">${esc(money(product.price))}</strong>
+        <div class="qty-step${Number(product.qty) === 0 ? " is-out" : Number(product.qty) === 1 ? " is-low" : ""}">
           <button type="button" data-qty="-1" data-id="${esc(product.id)}" aria-label="Diminuir">−</button>
           <b>${esc(product.qty)}</b>
           <button type="button" data-qty="1" data-id="${esc(product.id)}" aria-label="Aumentar">+</button>
-          <strong class="row-price">${esc(money(product.price))}</strong>
         </div>
         <div class="actions">
           <button class="ghost" type="button" data-edit="${esc(product.id)}">Editar</button>
@@ -153,12 +176,12 @@ function icon(name) {
   return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || ""}</svg>`;
 }
 
-function shell(title, body) {
+function shell(title, body, actions = "", lede = "") {
   const item = (id, label) => `<button type="button" data-view="${id}" class="${view === id ? "is-on" : ""}">${icon(id)}<span>${label}</span></button>`;
   return `
     <div class="desk">
       <aside class="side">
-        <a class="brand" href="/admin"><img src="/assets/logo.png" alt="" width="56" height="48" /><strong>Painel</strong></a>
+        <a class="brand" href="/admin"><img src="/assets/logo.png" alt="" width="56" height="48" /><span><strong>Master Bu</strong><small>Painel da loja</small></span></a>
         <nav class="menu" aria-label="Painel">
           <p class="group-label">Loja</p>
           ${item("home", "Visão geral")}
@@ -172,6 +195,7 @@ function shell(title, body) {
           ${item("visits", "Visitas")}
         </nav>
         <div class="side-foot">
+          <a class="ghost" href="/" target="_blank" rel="noopener">Ver a loja</a>
           <span class="muted">${esc(session.user.email)}</span>
           <button class="ghost" type="button" data-logout>Sair</button>
         </div>
@@ -181,113 +205,141 @@ function shell(title, body) {
           <span class="muted">${esc(session.user.email)}</span>
           <button class="ghost" type="button" data-logout>Sair</button>
         </div>
-        <h1>${esc(title)}</h1>
+        <header class="page-head">
+          <div>
+            <h1>${esc(title)}</h1>
+            ${lede ? `<p class="page-lede">${esc(lede)}</p>` : ""}
+          </div>
+          ${actions ? `<div class="page-actions">${actions}</div>` : ""}
+        </header>
         <div id="editor"></div>
-        <p class="msg" id="desk-msg">${esc(message)}</p>
+        <p class="msg" id="desk-msg" role="status" aria-live="polite"></p>
         ${body}
         <p class="credit">Site desenvolvido por <a href="https://felipeseussites.vercel.app" target="_blank" rel="noopener noreferrer">Felipe</a></p>
       </div>
     </div>`;
 }
 
+const ADD_BUTTONS = `
+  <button class="solid" type="button" id="add-card">+ Carta</button>
+  <button class="solid" type="button" id="add-sealed">+ Lacrado</button>
+  <button class="ghost" type="button" id="add-presale">+ Pré-venda</button>`;
+
+function count(list, one, many) {
+  return `${list.length} ${list.length === 1 ? one : many}`;
+}
+
 function homeView() {
-  const singles = products.filter((product) => displayKind(product) === "single");
-  const presale = products.filter((product) => displayKind(product) === "presale");
-  const sealed = products.filter((product) => displayKind(product) === "sealed");
+  const byKind = (kind) => products.filter((product) => displayKind(product) === kind);
   const low = products.filter((product) => Number(product.qty) <= 1);
+  const stat = (kind, label, value) => `<button type="button" class="stat" data-go-kind="${kind}"><span>${label}</span><b>${value}</b></button>`;
   return shell("Visão geral", `
     <div class="stats">
-      <div><span>Itens</span><b>${products.length}</b></div>
-      <div><span>Avulsos</span><b>${singles.length}</b></div>
-      <div><span>Pré-venda</span><b>${presale.length}</b></div>
-      <div><span>Lacrados</span><b>${sealed.length}</b></div>
-      <div><span>Master sets</span><b>${products.filter((product) => displayKind(product) === "master").length}</b></div>
-      <div><span>Valor em estoque</span><b>${esc(money(stockValue(products)))}</b></div>
+      ${stat("all", "Itens", products.length)}
+      ${stat("single", "Avulsos", byKind("single").length)}
+      ${stat("presale", "Pré-venda", byKind("presale").length)}
+      ${stat("sealed", "Lacrados", byKind("sealed").length)}
+      ${stat("master", "Master sets", byKind("master").length)}
+      <div class="stat is-money"><span>Valor em estoque</span><b>${esc(money(stockValue(products)))}</b></div>
     </div>
-    <section>
-      <h2>Com 1 ou 0</h2>
-      <div id="plist">${productRows(low)}</div>
-      <div class="actions">
-        <button class="solid" type="button" id="add-card">Adicionar carta</button>
-        <button class="solid" type="button" id="add-sealed">Adicionar lacrado</button>
-        <button class="ghost" type="button" id="add-presale">Adicionar pré-venda</button>
+    <section class="block">
+      <div class="block-head">
+        <h2>Estoque baixo</h2>
+        <p class="muted">Itens com 1 ou 0 unidades. Use + e − para ajustar.</p>
       </div>
-    </section>`);
+      <div id="plist">${low.length ? productRows(low) : empty("Nenhum item acabando.")}</div>
+    </section>`, ADD_BUTTONS, "Resumo da loja e o que precisa de atenção.");
 }
 
 function stockView() {
+  const list = catalogRows();
   return shell("Vitrine", `
     <div class="toolbar">
-      <input id="stock-q" type="search" placeholder="Nome, número ou coleção" value="${esc(stockQuery)}" />
-      <select id="stock-kind">
+      <input id="stock-q" type="search" placeholder="Buscar por nome, número ou coleção" value="${esc(stockQuery)}" />
+      <select id="stock-kind" aria-label="Tipo">
         ${[["all", "Tudo"], ["single", "Avulsos"], ["presale", "Pré-venda"], ["sealed", "Lacrados"], ["master", "Master sets"]].map(([value, label]) => `<option value="${value}"${stockKind === value ? " selected" : ""}>${label}</option>`).join("")}
       </select>
     </div>
-    <div class="actions">
-      <button class="solid" type="button" id="add-card">Adicionar carta</button>
-      <button class="solid" type="button" id="add-sealed">Adicionar lacrado</button>
-      <button class="ghost" type="button" id="add-presale">Adicionar pré-venda</button>
-    </div>
-    <div id="plist">${productRows(catalogRows())}</div>`);
+    <p class="count" id="plist-count">${count(list, "item", "itens")}</p>
+    <div id="plist">${productRows(list)}</div>`, ADD_BUTTONS, "Tudo o que aparece na loja.");
 }
 
 function inventoryView() {
+  const list = inventoryRows();
   return shell("Estoque", `
     <div class="toolbar">
       <input id="stock-q" type="search" placeholder="Buscar no estoque" value="${esc(stockQuery)}" />
-      <select id="stock-level">
-        ${[["all", "Tudo"], ["low", "Baixo"], ["out", "Zerado"]].map(([value, label]) => `<option value="${value}"${stockLevel === value ? " selected" : ""}>${label}</option>`).join("")}
+      <select id="stock-level" aria-label="Nível do estoque">
+        ${[["all", "Tudo"], ["low", "Só 1 unidade"], ["out", "Zerados"]].map(([value, label]) => `<option value="${value}"${stockLevel === value ? " selected" : ""}>${label}</option>`).join("")}
       </select>
     </div>
-    <div id="plist">${productRows(inventoryRows())}</div>`);
+    <p class="count" id="plist-count">${count(list, "item", "itens")}</p>
+    <div id="plist">${productRows(list)}</div>`, "", "Ajuste as quantidades com + e −.");
 }
 
 function setsView() {
+  const used = (id) => products.filter((product) => product.set_id === id).length;
   const rows = sortSets(sets).map((set) => `
-    <div class="row">
-      <span class="thumb"></span>
-      <div class="row-name"><strong>${esc(set.name)}</strong><p>${esc(set.code)} · ${esc(set.id)}</p></div>
+    <div class="row set-row">
+      <span class="thumb-box">${setLogoSrc(set.id) ? `<img alt="" src="${esc(setLogoSrc(set.id))}" data-set-logo />` : ""}</span>
+      <div class="row-name"><strong>${esc(set.name)}</strong><p>${esc(set.code)} · ${used(set.id)} ${used(set.id) === 1 ? "item" : "itens"}</p></div>
       <div class="row-tools">
-        <button class="ghost" type="button" data-set="${esc(set.id)}">Editar</button>
-        <button class="ghost danger" type="button" data-set-remove="${esc(set.id)}">Apagar</button>
+        <div class="actions">
+          <button class="ghost" type="button" data-set="${esc(set.id)}">Editar</button>
+          <button class="ghost danger" type="button" data-set-remove="${esc(set.id)}">Apagar</button>
+        </div>
       </div>
     </div>`).join("");
-  const current = setEditing ? sets.find((set) => set.id === setEditing) : null;
-  return shell("Coleções", `
-    <form id="set-form" class="set-form" method="post" action="/admin">
-      ${current ? `<p class="muted">${esc(current.id)}</p><input type="hidden" name="id" value="${esc(current.id)}" />` : field("id", "Código", "")}
-      ${field("code", "Sigla", current?.code || "")}
+  return shell("Coleções", `<div class="list">${rows || empty("Nenhuma coleção.")}</div>`,
+    `<button class="solid" type="button" id="add-set">+ Coleção</button>`,
+    "Coleções usadas para organizar os produtos.");
+}
+
+function setFormHtml() {
+  if (!setEditing) return "";
+  const current = setEditing === "new" ? null : sets.find((set) => set.id === setEditing);
+  return `
+    <form id="set-form" class="editor" method="post" action="/admin">
+      <h2>${current ? "Editar coleção" : "Nova coleção"}</h2>
+      ${current ? `<input type="hidden" name="id" value="${esc(current.id)}" />` : ""}
+      <div class="two">
+        ${current ? `<label>Código<input type="text" value="${esc(current.id)}" readonly /></label>` : field("id", "Código", "")}
+        ${field("code", "Sigla", current?.code || "")}
+      </div>
       ${field("name", "Nome", current?.name || "")}
-      <button class="solid" type="submit">${current ? "Salvar coleção" : "Criar coleção"}</button>
-    </form>
-    <div>${rows || `<p class="muted">Nenhuma coleção.</p>`}</div>`);
+      <div class="actions form-actions">
+        <button class="solid" type="submit">${current ? "Salvar coleção" : "Criar coleção"}</button>
+        <button class="ghost" type="button" id="set-cancel">Cancelar</button>
+      </div>
+    </form>`;
 }
 
 function masterView() {
   const list = products.filter((product) => displayKind(product) === "master");
-  return shell("Master Set", `
-    <div class="actions">
-      <button class="solid" type="button" id="add-master">Adicionar master set</button>
-    </div>
-    <div id="plist">${list.length ? productRows(list) : `<p class="muted">Nenhum master set à venda.</p>`}</div>`);
+  return shell("Master Set", `<div id="plist">${list.length ? productRows(list) : empty("Nenhum master set à venda.")}</div>`,
+    `<button class="solid" type="button" id="add-master">+ Master set</button>`,
+    "Coleções completas à venda.");
 }
 
 function bannersView() {
   const list = publicBanners(banners);
-  const rows = list.map((banner) => `
-    <div class="banner-row">
-      <img src="${esc(banner.image)}" alt="" />
-      <div class="row-name"><strong>${esc(banner.label)}</strong><p class="muted">${esc(banner.href)}</p></div>
-      <div class="actions">
-        <button class="ghost" type="button" data-banner-move="${esc(banner.id)}" data-dir="-1">Subir</button>
-        <button class="ghost" type="button" data-banner-move="${esc(banner.id)}" data-dir="1">Descer</button>
-        <button class="ghost" type="button" data-banner="${esc(banner.id)}">Editar</button>
-        <button class="ghost danger" type="button" data-banner-remove="${esc(banner.id)}">Apagar</button>
+  const destination = (href) => BANNER_DESTINATIONS.find((item) => item.href === href)?.label || href;
+  const rows = list.map((banner, index) => `
+    <div class="row banner-row">
+      <span class="thumb-box"><img src="${esc(banner.image)}" alt="" /></span>
+      <div class="row-name"><strong>${esc(banner.label)}</strong><p>${index + 1}º · leva para ${esc(destination(banner.href))}</p></div>
+      <div class="row-tools">
+        <div class="actions">
+          <button class="ghost icon-btn" type="button" data-banner-move="${esc(banner.id)}" data-dir="-1" aria-label="Subir"${index === 0 ? " disabled" : ""}>↑</button>
+          <button class="ghost icon-btn" type="button" data-banner-move="${esc(banner.id)}" data-dir="1" aria-label="Descer"${index === list.length - 1 ? " disabled" : ""}>↓</button>
+          <button class="ghost" type="button" data-banner="${esc(banner.id)}">Editar</button>
+          <button class="ghost danger" type="button" data-banner-remove="${esc(banner.id)}">Apagar</button>
+        </div>
       </div>
     </div>`).join("");
-  return shell("Banners", `
-    <button class="solid" type="button" id="add-banner">Adicionar banner</button>
-    <div>${rows || `<p class="muted">Nenhum banner ainda.</p>`}</div>`);
+  return shell("Banners", `<div class="list">${rows || empty("Nenhum banner ainda.")}</div>`,
+    `<button class="solid" type="button" id="add-banner">+ Banner</button>`,
+    "Imagens que giram no topo da loja, na ordem abaixo.");
 }
 
 function catalogShelfList() {
@@ -305,18 +357,19 @@ function shelfOf(productId) {
 function tabsView() {
   const list = catalogShelfList();
   const catalog = products.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "pt"));
-  const rows = list.map((shelf) => `
+  const rows = list.map((shelf, index) => `
     <section class="shelf-block" data-shelf="${esc(shelf.id)}">
       <div class="shelf-head">
         <input data-shelf-name value="${esc(shelf.label)}" maxlength="40" aria-label="Nome da aba" />
+        <span class="pill" data-shelf-count>${shelf.productIds.length} ${shelf.productIds.length === 1 ? "produto" : "produtos"}</span>
         <div class="actions">
-          <button class="ghost" type="button" data-shelf-move="${esc(shelf.id)}" data-dir="-1">Subir</button>
-          <button class="ghost" type="button" data-shelf-move="${esc(shelf.id)}" data-dir="1">Descer</button>
+          <button class="ghost icon-btn" type="button" data-shelf-move="${esc(shelf.id)}" data-dir="-1" aria-label="Subir"${index === 0 ? " disabled" : ""}>↑</button>
+          <button class="ghost icon-btn" type="button" data-shelf-move="${esc(shelf.id)}" data-dir="1" aria-label="Descer"${index === list.length - 1 ? " disabled" : ""}>↓</button>
           <button class="ghost danger" type="button" data-shelf-remove="${esc(shelf.id)}">Apagar</button>
         </div>
       </div>
       <div class="shelf-products">
-        ${catalog.map((product) => `
+        ${catalog.slice().sort((a, b) => Number(shelf.productIds.includes(b.id)) - Number(shelf.productIds.includes(a.id))).map((product) => `
           <label class="check">
             <input type="checkbox" data-shelf-product="${esc(product.id)}"${shelf.productIds.includes(product.id) ? " checked" : ""} />
             <span>${esc(product.name)}</span>
@@ -324,12 +377,13 @@ function tabsView() {
       </div>
     </section>`).join("");
   return shell("Abas", `
-    <div class="actions">
-      <button class="solid" type="button" id="add-shelf">Adicionar aba</button>
-      <button class="solid" type="button" id="save-shelves">Salvar abas</button>
+    <div class="toolbar">
+      <input id="shelf-q" type="search" placeholder="Filtrar produtos dentro das abas" autocomplete="off" aria-label="Buscar produto" />
     </div>
-    <label>Buscar produto<input id="shelf-q" type="search" placeholder="Nome do produto" autocomplete="off" /></label>
-    <div id="shelf-editor">${rows || `<p class="muted">Nenhuma aba ainda.</p>`}</div>`);
+    ${shelfDraft ? `<p class="notice">Você tem mudanças não salvas. Clique em <b>Salvar abas</b> para publicar.</p>` : ""}
+    <div id="shelf-editor">${rows || empty("Nenhuma aba ainda.")}</div>`,
+    `<button class="ghost" type="button" id="add-shelf">+ Aba</button><button class="solid" type="button" id="save-shelves">Salvar abas</button>`,
+    "Prateleiras da página inicial. Cada produto fica em uma aba só.");
 }
 
 function visitsView() {
@@ -337,23 +391,35 @@ function visitsView() {
   const max = Math.max(1, ...summary.perDay.map((day) => day.people));
   return shell("Visitas", `
     <div class="toolbar">
-      ${[["month", "Este mês"], ["prev", "Mês anterior"], ["all", "Tudo"]].map(([value, label]) => `<button class="ghost${visitRange === value ? " is-on" : ""}" type="button" data-range="${value}">${label}</button>`).join("")}
-      <input id="visit-from" type="date" value="${esc(visitFrom)}" />
-      <input id="visit-to" type="date" value="${esc(visitTo)}" />
+      <div class="segmented">
+        ${[["month", "Este mês"], ["prev", "Mês anterior"], ["all", "Tudo"]].map(([value, label]) => `<button type="button" class="${visitRange === value ? "is-on" : ""}" data-range="${value}">${label}</button>`).join("")}
+      </div>
+      <label class="date">De<input id="visit-from" type="date" value="${esc(visitFrom)}" /></label>
+      <label class="date">Até<input id="visit-to" type="date" value="${esc(visitTo)}" /></label>
     </div>
     <div class="stats">
-      <div><span>Pessoas</span><b>${summary.people}</b></div>
-      <div><span>Visitas</span><b>${summary.rows.length}</b></div>
-      <div><span>Hoje</span><b>${summary.today}</b></div>
+      <div class="stat"><span>Pessoas</span><b>${summary.people}</b></div>
+      <div class="stat"><span>Visitas</span><b>${summary.rows.length}</b></div>
+      <div class="stat"><span>Hoje</span><b>${summary.today}</b></div>
     </div>
-    <h2>Pessoas por dia</h2>
-    <div class="bars">${summary.perDay.map((day) => `<div class="bar-col"><b>${day.people}</b><i style="height:${Math.max(6, Math.round(day.people / max * 100))}px"></i><small>${esc(day.label)}</small></div>`).join("") || `<p class="muted">Nenhuma visita neste período.</p>`}</div>
-    <h2>Páginas</h2>
-    ${summary.pages.map((page) => `<div class="rank"><span>${esc(page.label)}</span><strong>${page.count}</strong></div>`).join("") || `<p class="muted">Sem páginas.</p>`}
-    <h2>Cidades</h2>
-    ${summary.cities.map((city) => `<div class="rank"><span>${esc(city.city)}</span><strong>${city.count}</strong></div>`).join("") || `<p class="muted">Sem cidades.</p>`}
-    <h2>Últimas</h2>
-    ${summary.rows.slice(0, 20).map((visit) => `<div class="rank"><span>${esc(visit.visitor || "—")}</span><span>${esc(visit.city || "—")}</span><span>${esc(visit.path || "/")}</span></div>`).join("")}`);
+    <section class="block">
+      <h2>Pessoas por dia</h2>
+      <div class="bars">${summary.perDay.map((day) => `<div class="bar-col"><b>${day.people}</b><i style="height:${Math.max(6, Math.round(day.people / max * 100))}px"></i><small>${esc(day.label)}</small></div>`).join("") || `<p class="muted">Nenhuma visita neste período.</p>`}</div>
+    </section>
+    <div class="two">
+      <section class="block">
+        <h2>Páginas</h2>
+        ${summary.pages.map((page) => `<div class="rank"><span>${esc(page.label)}</span><strong>${page.count}</strong></div>`).join("") || `<p class="muted">Sem páginas.</p>`}
+      </section>
+      <section class="block">
+        <h2>Cidades</h2>
+        ${summary.cities.map((city) => `<div class="rank"><span>${esc(city.city)}</span><strong>${city.count}</strong></div>`).join("") || `<p class="muted">Sem cidades.</p>`}
+      </section>
+    </div>
+    <section class="block">
+      <h2>Últimas visitas</h2>
+      ${summary.rows.slice(0, 20).map((visit) => `<div class="rank rank-3"><span>${esc(visit.visitor || "—")}</span><span>${esc(visit.city || "—")}</span><span>${esc(visit.path || "/")}</span></div>`).join("") || `<p class="muted">Nenhuma visita.</p>`}
+    </section>`, "", "Quem visitou a loja e quais páginas.");
 }
 
 function editorHtml() {
@@ -382,10 +448,10 @@ function editorHtml() {
         ? `<img class="preview${master && !ownPhoto ? " logo-preview" : ""}" id="photo-preview" alt="" src="${esc(preview)}" ${master && !ownPhoto ? "data-set-logo" : "data-card"} />`
         : `<p class="muted" id="photo-preview">${master ? "Escolha a coleção para usar a logo." : "Sem foto"}</p>`}
       <div class="actions">
-        <label class="ghost">${master ? "Adicionar foto" : "Trocar a foto"}<input id="photo-file" type="file" accept="image/*" hidden /></label>
+        <label class="ghost file-btn">${master ? "Adicionar foto" : "Trocar a foto"}<input id="photo-file" type="file" accept="image/*" hidden /></label>
         <button class="ghost" type="button" id="photo-clear">Tirar foto</button>
       </div>
-      <div class="two">${field("id", "Código", p.id)}${field("name", "Nome", p.name)}</div>
+      <div class="two">${product ? `<label>Código<input name="id" type="text" value="${esc(p.id)}" readonly /></label>` : field("id", "Código", p.id)}${field("name", "Nome", p.name)}</div>
       <input type="hidden" name="set_id" value="${esc(p.set_id || "")}" />
       <label>Coleção da loja<input id="set-q" type="search" placeholder="Buscar coleção" autocomplete="off" value="${esc(p.set_id ? setName(p.set_id) : "")}" /></label>
       <div id="set-hits" class="names"></div>
@@ -398,7 +464,7 @@ function editorHtml() {
       ${sealed ? `<input type="hidden" name="condition" value="${esc(!p.condition || p.condition === "NM" ? "Lacrado" : p.condition)}" /><input type="hidden" name="finish" value="${esc(p.finish || "Lacrado")}" />` : field("finish", "Acabamento", p.finish || "Normal")}
       <div class="two">${field("qty", "Quantidade", p.qty, "number")}${field("price", "Preço", p.price === 0 || p.price ? p.price : "", "text")}</div>
       ${kind === "single" || kind === "sealed" ? `<label>Aba<select name="shelf"><option value="">Sem aba</option>${catalogShelfList().map((shelf) => `<option value="${esc(shelf.id)}"${shelfOf(product?.id) === shelf.id ? " selected" : ""}>${esc(shelf.label)}</option>`).join("")}</select></label>` : ""}
-      <div class="actions">
+      <div class="actions form-actions">
         <button class="solid" type="submit">Salvar</button>
         ${product ? `<button class="ghost" type="button" id="copy">Duplicar</button>` : ""}
         ${product ? `<button class="ghost danger" type="button" id="remove-open">Apagar</button>` : ""}
@@ -420,34 +486,19 @@ function bannerFormHtml() {
   const dest = bannerDest(row);
   const options = [...BANNER_DESTINATIONS.map((item) => [item.id, item.label]), ["external", "Link externo"]];
   return `
-    <form id="banner-form" class="banner-form" method="post" action="/admin">
+    <form id="banner-form" class="editor" method="post" action="/admin">
       <h2>${row ? "Editar banner" : "Novo banner"}</h2>
-      ${bannerImage ? `<img class="preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />` : `<p class="muted" id="banner-preview">Escolha a imagem.</p>`}
-      <label class="ghost">Imagem<input id="banner-file" type="file" accept="image/*" hidden /></label>
-      ${field("label", "Nome", row?.label || "")}
-      <label>Destino<select name="dest" id="banner-dest">${options.map(([value, label]) => `<option value="${value}"${dest === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
-      <label id="banner-url"${dest === "external" ? "" : " hidden"}>Endereço https<input name="url" type="url" placeholder="https://" value="${esc(dest === "external" ? row?.href || "" : "")}" /></label>
+      ${bannerImage ? `<img class="banner-preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />` : `<p class="banner-preview is-empty" id="banner-preview">Nenhuma imagem escolhida</p>`}
       <div class="actions">
+        <label class="ghost file-btn">${bannerImage ? "Trocar imagem" : "Escolher imagem"}<input id="banner-file" type="file" accept="image/*" hidden /></label>
+        <span class="muted hint">Formato largo, 3 por 1 (ex.: 2048 × 682).</span>
+      </div>
+      ${field("label", "Nome", row?.label || "")}
+      <label>Destino ao clicar<select name="dest" id="banner-dest">${options.map(([value, label]) => `<option value="${value}"${dest === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label id="banner-url"${dest === "external" ? "" : " hidden"}>Endereço https<input name="url" type="url" placeholder="https://" value="${esc(dest === "external" ? row?.href || "" : "")}" /></label>
+      <div class="actions form-actions">
         <button class="solid" type="submit">Salvar banner</button>
         <button class="ghost" type="button" id="banner-cancel">Cancelar</button>
-      </div>
-    </form>`;
-}
-
-function tabFormHtml() {
-  if (!tabEditing) return "";
-  const row = tabEditing === "new" ? null : tabs.find((item) => item.id === tabEditing);
-  const icon = row?.icon || TAB_ICONS[0].src;
-  return `
-    <form id="tab-form" class="banner-form" method="post" action="/admin">
-      <h2>${row ? "Editar aba" : "Nova aba"}</h2>
-      ${row ? `<input type="hidden" name="id" value="${esc(row.id)}" />` : field("id", "Código", "")}
-      ${field("label", "Nome", row?.label || "")}
-      ${field("href", "Link", row?.href || "#/")}
-      <label>Ícone<select name="icon">${TAB_ICONS.map((item) => `<option value="${esc(item.src)}"${icon === item.src ? " selected" : ""}>${esc(item.label)}</option>`).join("")}</select></label>
-      <div class="actions">
-        <button class="solid" type="submit">Salvar aba</button>
-        <button class="ghost" type="button" id="tab-cancel">Cancelar</button>
       </div>
     </form>`;
 }
@@ -456,9 +507,9 @@ function render() {
   if (!session) {
     app.innerHTML = `
       <div class="login">
-        <form id="login" method="post" action="/admin">
+        <form id="login" class="login-card" method="post" action="/admin">
           <img src="/assets/logo.png" alt="Master Bu" width="102" height="88" />
-          <h1>Painel</h1>
+          <h1>Painel da loja</h1>
           <p class="muted">Entre com o e-mail e a senha do administrador.</p>
           <label>E-mail<input name="email" type="email" autocomplete="username" required /></label>
           <label>Senha<input name="password" type="password" autocomplete="current-password" required /></label>
@@ -476,7 +527,8 @@ function render() {
   const slot = document.getElementById("editor");
   if (editor?.kind) slot.innerHTML = editorHtml();
   else if (bannerEditing) slot.innerHTML = bannerFormHtml();
-  else if (tabEditing) slot.innerHTML = tabFormHtml();
+  else if (view === "sets" && setEditing) slot.innerHTML = setFormHtml();
+  paintMessage(document.getElementById("desk-msg"));
   bindCardImages();
   bindSetLogos(app);
 }
@@ -509,11 +561,10 @@ async function login(event) {
 }
 
 async function reload() {
-  const [setRes, productRes, bannerRes, tabRes] = await Promise.all([
+  const [setRes, productRes, bannerRes] = await Promise.all([
     sb.from("sets").select("id,name,code,sort").order("sort"),
     sb.from("products").select("*").order("name"),
     sb.from("banners").select("id,image,href,label,scroll,sort").order("sort"),
-    sb.from("tabs").select("id,label,href,icon,sort").order("sort"),
   ]);
   if (setRes.error || productRes.error || bannerRes.error) {
     message = (setRes.error || productRes.error || bannerRes.error).message;
@@ -521,8 +572,6 @@ async function reload() {
   sets = setRes.data || [];
   products = productRes.data || [];
   banners = bannerRes.data || [];
-  tabs = tabRes.data || [];
-  tabsError = tabRes.error ? tabRes.error.message : "";
   if (view === "visits") {
     const result = await sb.from("visits").select("created_at,path,visitor,city").order("created_at", { ascending: false }).limit(4000);
     visits = result.data || [];
@@ -547,7 +596,7 @@ function editorPhoto(product) {
 function openEditor(product, kind) {
   bannerEditing = null;
   bannerImage = "";
-  tabEditing = null;
+  setEditing = null;
   const nextKind = product ? displayKind(product) : kind;
   const ownPhoto = nextKind === "master" && ownMasterPhoto(product);
   editor = {
@@ -657,13 +706,13 @@ async function runCardSearch(text) {
     const result = await findDirectCards(text, fetchPage, knownSets());
     if (token !== searchToken) return;
     paintNames([]);
-    if (result.error) { message = result.error; document.getElementById("desk-msg").textContent = message; paintPrintings([]); return; }
+    if (result.error) { notify(result.error); paintPrintings([]); return; }
     paintPrintings(result.printings);
     return;
   }
   const result = await searchCardNames(text, fetchPage, knownSets());
   if (token !== searchToken) return;
-  if (result.error) { message = result.error; document.getElementById("desk-msg").textContent = message; return; }
+  if (result.error) { notify(result.error); return; }
   editor.cards = result.cards;
   paintNames(result.names);
   if (result.chosen) {
@@ -767,8 +816,7 @@ async function saveProduct(event) {
     price: form.get("price"),
     image: editor?.ownPhoto ? (editor.image || "") : (kind === "master" ? setLogoSrc(form.get("set_id")) : (editor?.image || "")),
   });
-  const note = document.getElementById("desk-msg");
-  const fail = (text) => { message = text; if (note) note.textContent = text; };
+  const fail = notify;
   if (!built.ok) { fail(built.error); return; }
   if (kind === "presale" && !built.row.id.startsWith("me6-")) {
     fail("Para aparecer como pré-venda, o código precisa começar com me6-.");
@@ -812,18 +860,28 @@ async function changeQty(id, delta) {
   if (!product) return;
   const qty = stepQty(product.qty, delta);
   const { error } = await sb.from("products").update({ qty }).eq("id", id);
-  if (error) { message = error.message; render(); return; }
+  if (error) { notify(error.message); return; }
   product.qty = qty;
-  message = "Quantidade atualizada.";
-  if (editor?.kind) {
-    const list = document.getElementById("plist");
-    if (list) list.innerHTML = productRows(view === "inventory" ? inventoryRows() : view === "home" ? products.filter((item) => Number(item.qty) <= 1) : catalogRows());
-    const note = document.getElementById("desk-msg");
-    if (note) note.textContent = message;
-    bindCardImages();
-    return;
-  }
-  await reload();
+  refreshList();
+  notify("Quantidade atualizada.");
+}
+
+function currentRows() {
+  if (view === "inventory") return inventoryRows();
+  if (view === "home") return products.filter((item) => Number(item.qty) <= 1);
+  if (view === "master") return products.filter((item) => displayKind(item) === "master");
+  return catalogRows();
+}
+
+function refreshList() {
+  const list = document.getElementById("plist");
+  if (!list) return;
+  const rows = currentRows();
+  list.innerHTML = rows.length || view !== "home" ? productRows(rows) : empty("Nenhum item acabando.");
+  const total = document.getElementById("plist-count");
+  if (total) total.textContent = count(rows, "item", "itens");
+  bindCardImages();
+  bindSetLogos(list);
 }
 
 async function removeProduct(id) {
@@ -854,7 +912,7 @@ async function saveSet(event) {
     name: form.get("name"),
     sort: existing ? existing.sort : sets.length,
   });
-  if (!built.ok) { message = built.error; render(); return; }
+  if (!built.ok) { notify(built.error); return; }
   const { error } = await sb.from("sets").upsert(built.row);
   message = error ? error.message : "Coleção salva.";
   setEditing = null;
@@ -863,7 +921,7 @@ async function saveSet(event) {
 
 async function removeSet(id) {
   const blocked = setDeleteError(products, id);
-  if (blocked) { message = blocked; render(); return; }
+  if (blocked) { notify(blocked); return; }
   const { error } = await sb.from("sets").delete().eq("id", id);
   message = error ? error.message : "Coleção apagada.";
   setEditing = null;
@@ -882,7 +940,7 @@ async function saveBanner(event) {
     url: form.get("url"),
     sort: current?.sort,
   }, publicBanners(banners));
-  if (!built.ok) { message = built.error; render(); return; }
+  if (!built.ok) { notify(built.error); return; }
   const { error } = await sb.from("banners").upsert(built.row);
   message = error ? error.message : "Banner salvo.";
   if (!error) { bannerEditing = null; bannerImage = ""; editor = null; }
@@ -934,47 +992,13 @@ async function saveShelves() {
   const list = takeShelves();
   shelfDraft = list;
   if (list.some((shelf) => !String(shelf.label || "").trim())) {
-    message = "Dê um nome a cada aba.";
-    render();
+    notify("Dê um nome a cada aba.");
     return;
   }
   const error = await writeShelves(list);
-  if (error) { message = error; render(); return; }
+  if (error) { notify(error); return; }
   message = "Abas salvas.";
   shelfDraft = null;
-  await reload();
-}
-
-async function saveTab(event) {
-  event.preventDefault();
-  const form = new FormData(event.target);
-  const current = tabEditing && tabEditing !== "new" ? tabs.find((item) => item.id === tabEditing) : null;
-  const built = buildTab({
-    id: current?.id || form.get("id"),
-    label: form.get("label"),
-    href: form.get("href"),
-    icon: form.get("icon"),
-    sort: current?.sort,
-  }, tabs);
-  if (!built.ok) { message = built.error; render(); return; }
-  const { error } = await sb.from("tabs").upsert(built.row);
-  message = error ? error.message : "Aba salva.";
-  if (!error) tabEditing = null;
-  await reload();
-}
-
-async function moveTab(id, dir) {
-  const next = reorderTabs(tabs, id, dir);
-  if (!next) return;
-  const { error } = await sb.from("tabs").upsert(next.map((item) => ({ id: item.id, label: item.label, href: item.href, icon: item.icon, sort: item.sort })));
-  message = error ? error.message : "";
-  await reload();
-}
-
-async function removeTab(id) {
-  const { error } = await sb.from("tabs").delete().eq("id", id);
-  message = error ? error.message : "Aba excluída.";
-  tabEditing = null;
   await reload();
 }
 
@@ -991,10 +1015,21 @@ app.addEventListener("click", async (event) => {
     view = viewButton.dataset.view;
     editor = null;
     bannerEditing = null;
-    tabEditing = null;
+    setEditing = null;
+    shelfDraft = null;
     message = "";
+    window.scrollTo(0, 0);
     if (view === "visits" || view === "banners" || view === "tabs") await reload();
     else render();
+    return;
+  }
+  const goKind = event.target.closest("[data-go-kind]");
+  if (goKind) {
+    stockKind = goKind.dataset.goKind;
+    stockQuery = "";
+    view = goKind.dataset.goKind === "master" ? "master" : "stock";
+    window.scrollTo(0, 0);
+    render();
     return;
   }
   if (event.target.closest("[data-logout]")) {
@@ -1032,11 +1067,17 @@ app.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.id === "copy") { await copyProduct(); return; }
-  if (event.target.id === "remove-open" && editor?.product) { await removeProduct(editor.product.id); return; }
+  if (event.target.id === "remove-open" && editor?.product) {
+    if (confirmRemove(editor.product.name)) await removeProduct(editor.product.id);
+    return;
+  }
   const edit = event.target.closest("[data-edit]");
   if (edit) { openEditor(products.find((item) => item.id === edit.dataset.edit)); return; }
   const remove = event.target.closest("[data-remove]");
-  if (remove) { await removeProduct(remove.dataset.remove); return; }
+  if (remove) {
+    if (confirmRemove(products.find((item) => item.id === remove.dataset.remove)?.name)) await removeProduct(remove.dataset.remove);
+    return;
+  }
   const qty = event.target.closest("[data-qty]");
   if (qty) { await changeQty(qty.dataset.id, Number(qty.dataset.qty)); return; }
   const pickedName = event.target.closest("[data-name]");
@@ -1053,22 +1094,31 @@ app.addEventListener("click", async (event) => {
   if (sealType) { editor.sealedType = sealType.dataset.sealType; paintSealed(); return; }
   const sealItem = event.target.closest("[data-seal-item]");
   if (sealItem) { applySealed(editor.sealedView[Number(sealItem.dataset.sealItem)]); return; }
+  if (event.target.id === "add-set") { setEditing = "new"; render(); scrollToEditor(); return; }
+  if (event.target.id === "set-cancel") { setEditing = null; render(); return; }
   const setButton = event.target.closest("[data-set]");
-  if (setButton) { setEditing = setButton.dataset.set; render(); return; }
+  if (setButton) { setEditing = setButton.dataset.set; render(); scrollToEditor(); return; }
   const setRemove = event.target.closest("[data-set-remove]");
-  if (setRemove) { await removeSet(setRemove.dataset.setRemove); return; }
-  if (event.target.id === "add-banner") { editor = null; tabEditing = null; bannerEditing = "new"; bannerImage = ""; render(); return; }
+  if (setRemove) {
+    if (confirmRemove(sets.find((set) => set.id === setRemove.dataset.setRemove)?.name)) await removeSet(setRemove.dataset.setRemove);
+    return;
+  }
+  if (event.target.id === "add-banner") { editor = null; bannerEditing = "new"; bannerImage = ""; render(); scrollToEditor(); return; }
   if (event.target.id === "banner-cancel") { bannerEditing = null; bannerImage = ""; render(); return; }
   const banner = event.target.closest("[data-banner]");
-  if (banner && !event.target.closest("[data-banner-move]") && !event.target.closest("[data-banner-remove]")) {
+  if (banner) {
     editor = null;
     bannerEditing = banner.dataset.banner;
     bannerImage = banners.find((item) => item.id === bannerEditing)?.image || "";
     render();
+    scrollToEditor();
     return;
   }
   const bannerRemove = event.target.closest("[data-banner-remove]");
-  if (bannerRemove) { await removeBanner(bannerRemove.dataset.bannerRemove); return; }
+  if (bannerRemove) {
+    if (confirmRemove(banners.find((item) => item.id === bannerRemove.dataset.bannerRemove)?.label)) await removeBanner(bannerRemove.dataset.bannerRemove);
+    return;
+  }
   const move = event.target.closest("[data-banner-move]");
   if (move) { await moveBanner(move.dataset.bannerMove, Number(move.dataset.dir)); return; }
   if (event.target.id === "add-shelf") {
@@ -1081,6 +1131,8 @@ app.addEventListener("click", async (event) => {
   if (event.target.id === "save-shelves") { await saveShelves(); return; }
   const shelfRemove = event.target.closest("[data-shelf-remove]");
   if (shelfRemove) {
+    const label = shelfRemove.closest("[data-shelf]")?.querySelector("[data-shelf-name]")?.value;
+    if (!confirmRemove(label)) return;
     shelfDraft = takeShelves().filter((shelf) => shelf.id !== shelfRemove.dataset.shelfRemove);
     render();
     return;
@@ -1097,20 +1149,6 @@ app.addEventListener("click", async (event) => {
     render();
     return;
   }
-  if (event.target.id === "add-tab") { editor = null; bannerEditing = null; tabEditing = "new"; render(); return; }
-  if (event.target.id === "tab-cancel") { tabEditing = null; render(); return; }
-  const tab = event.target.closest("[data-tab]");
-  if (tab && !event.target.closest("[data-tab-move]") && !event.target.closest("[data-tab-remove]")) {
-    editor = null;
-    bannerEditing = null;
-    tabEditing = tab.dataset.tab;
-    render();
-    return;
-  }
-  const tabRemove = event.target.closest("[data-tab-remove]");
-  if (tabRemove) { await removeTab(tabRemove.dataset.tabRemove); return; }
-  const tabMove = event.target.closest("[data-tab-move]");
-  if (tabMove) { await moveTab(tabMove.dataset.tabMove, Number(tabMove.dataset.dir)); return; }
   const range = event.target.closest("[data-range]");
   if (range) { visitRange = range.dataset.range; render(); }
 });
@@ -1118,9 +1156,7 @@ app.addEventListener("click", async (event) => {
 app.addEventListener("input", (event) => {
   if (event.target.id === "stock-q") {
     stockQuery = event.target.value;
-    const list = document.getElementById("plist");
-    if (list) list.innerHTML = productRows(view === "inventory" ? inventoryRows() : catalogRows());
-    bindCardImages();
+    refreshList();
     return;
   }
   if (event.target.id === "poke-name") {
@@ -1154,10 +1190,16 @@ app.addEventListener("input", (event) => {
 });
 
 app.addEventListener("change", async (event) => {
-  if (event.target.matches("[data-shelf-product]") && event.target.checked) {
-    const id = event.target.dataset.shelfProduct;
-    document.querySelectorAll(`[data-shelf-product="${CSS.escape(id)}"]`).forEach((box) => {
-      if (box !== event.target) box.checked = false;
+  if (event.target.matches("[data-shelf-product]")) {
+    if (event.target.checked) {
+      const id = event.target.dataset.shelfProduct;
+      document.querySelectorAll(`[data-shelf-product="${CSS.escape(id)}"]`).forEach((box) => {
+        if (box !== event.target) box.checked = false;
+      });
+    }
+    document.querySelectorAll("[data-shelf]").forEach((block) => {
+      const total = block.querySelectorAll("[data-shelf-product]:checked").length;
+      block.querySelector("[data-shelf-count]").textContent = `${total} ${total === 1 ? "produto" : "produtos"}`;
     });
     return;
   }
@@ -1179,7 +1221,7 @@ app.addEventListener("change", async (event) => {
       editor.image = sanitizeImage(await readPhoto(event.target.files[0], { maxSide: PHOTO_MAX_SIDE, quality: PHOTO_QUALITY }));
       editor.ownPhoto = true;
       showPreview(editor.image);
-    } catch (error) { message = error.message; document.getElementById("desk-msg").textContent = message; }
+    } catch (error) { notify(error.message); }
     return;
   }
   if (event.target.id === "banner-file" && event.target.files[0]) {
@@ -1187,19 +1229,19 @@ app.addEventListener("change", async (event) => {
       bannerImage = sanitizeImage(await readPhoto(event.target.files[0], { maxWidth: BANNER_MAX_WIDTH, quality: BANNER_QUALITY }));
       const preview = document.getElementById("banner-preview");
       if (preview.tagName === "IMG") preview.src = bannerImage;
-      else preview.outerHTML = `<img class="preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />`;
-    } catch (error) { message = error.message; document.getElementById("desk-msg").textContent = message; }
+      else preview.outerHTML = `<img class="banner-preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />`;
+      event.target.parentElement.firstChild.textContent = "Trocar imagem";
+    } catch (error) { notify(error.message); }
   }
 });
 
 app.addEventListener("submit", (event) => {
   const id = event.target?.getAttribute?.("id") || "";
-  if (!["editor-form", "set-form", "banner-form", "tab-form"].includes(id)) return;
+  if (!["editor-form", "set-form", "banner-form"].includes(id)) return;
   event.preventDefault();
   if (id === "editor-form") saveProduct(event);
   else if (id === "set-form") saveSet(event);
-  else if (id === "banner-form") saveBanner(event);
-  else saveTab(event);
+  else saveBanner(event);
 });
 
 try {
