@@ -677,29 +677,34 @@ main {
   padding-top: 28px;
 }
 main:has(> .hero) { padding-top: 0; }
-.hero { margin: 0 0 24px; }
+.hero { margin: 0 0 16px; }
+.hero-dots { margin-top: 10px; }
 .hero-rotator { background: transparent; }
 .foot { width: 100%; padding: 28px 16px 48px; border-top: 0; background: #f5f7ff; }
-main > .home-tabs { gap: 22px; padding: 4px 0 0; background: transparent; }
-.home-tabs a {
-  flex-direction: column;
+main > .home-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
-  min-height: 0;
+  width: min(420px, calc(100% - 24px));
+  max-width: none;
+  margin: 0 auto 8px;
   padding: 0;
-  font-size: 0.78rem;
-  font-weight: 600;
-  background: none;
-  box-shadow: none;
+  background: transparent;
+  border-radius: 0;
 }
-.home-tabs img {
-  width: 62px;
-  height: 62px;
-  padding: 16px;
-  border-radius: 18px;
+.home-tabs a {
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 6px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 6px 18px rgba(22, 58, 158, .16), inset 0 0 0 1px rgba(60, 60, 67, .06);
+  box-shadow: 0 0 0 1px rgba(29, 78, 216, .14), 0 4px 12px rgba(22, 58, 158, .06);
 }
-.home-tabs a:hover { color: var(--ink); transform: translateY(-3px); }
+.home-tabs img { width: 16px; height: 16px; }
+.home-tabs a:hover { color: var(--blue); transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(29, 78, 216, .3), 0 8px 18px rgba(22, 58, 158, .12); }
+.home-tabs + .shelf { margin-top: 26px; }
 .card {
   padding: 10px;
   border: 0;

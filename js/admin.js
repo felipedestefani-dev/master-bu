@@ -494,7 +494,7 @@ function bannerFormHtml() {
       ${bannerImage ? `<img class="banner-preview" id="banner-preview" alt="" src="${esc(bannerImage)}" />` : `<p class="banner-preview is-empty" id="banner-preview">Nenhuma imagem escolhida</p>`}
       <div class="actions">
         <label class="ghost file-btn">${bannerImage ? "Trocar imagem" : "Escolher imagem"}<input id="banner-file" type="file" accept="image/*" hidden /></label>
-        <span class="muted hint">Formato 3 por 1 (ex.: 2048 × 682).</span>
+        <span class="muted hint">Formato 2 por 1 (ex.: 1440 × 720).</span>
       </div>
       <h3 class="banner-part">Computador <span class="muted">(opcional)</span></h3>
       ${bannerPcImage ? `<img class="banner-preview is-wide" id="banner-pc-preview" alt="" src="${esc(bannerPcImage)}" />` : `<p class="banner-preview is-wide is-empty" id="banner-pc-preview">Sem imagem: o computador mostra a do celular</p>`}
