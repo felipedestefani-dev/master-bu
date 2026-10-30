@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="/css/store.css?v=31" />
+  <link rel="stylesheet" href="/css/store.css?v=37" />
 </head>
 <body>
   <header class="top">
@@ -61,6 +61,11 @@
     <p class="credit">Site desenvolvido por <a href="https://felipeseussites.vercel.app" target="_blank" rel="noopener noreferrer">Felipe</a></p>
   </footer>
   <div id="cookies" class="cookies" hidden></div>
+  <script>
+    document.addEventListener("gesturestart", (event) => event.preventDefault());
+    document.addEventListener("touchmove", (event) => { if (event.touches.length > 1) event.preventDefault(); }, { passive: false });
+    document.addEventListener("wheel", (event) => { if (event.ctrlKey) event.preventDefault(); }, { passive: false });
+  </script>
   <script type="module" src="/js/store.js?v=38"></script>
 </body>
 </html>
