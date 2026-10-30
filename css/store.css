@@ -669,7 +669,6 @@ h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; }
 .meta,
 .qty { color: var(--blue); }
 .grade { border: 0; border-radius: 999px; background: #e8efff; color: var(--blue); }
-.grade.is-sealed { background: #fde6e8; color: var(--red); }
 .card h3 { color: var(--blue-dark); font-weight: 700; }
 .card:active { transform: scale(.97); }
 .back { background: none; padding-left: 0; color: var(--blue); }
@@ -746,8 +745,27 @@ main > .home-tabs {
   animation: card-holo 3.2s ease-in-out infinite;
 }
 @keyframes card-holo { 0% { background-position: 100% 0; } 100% { background-position: -50% 0; } }
+.card { position: relative; }
+.card .marks { position: absolute; z-index: 2; top: 10px; left: 10px; margin: 0; gap: 4px; }
+.card .grade {
+  padding: 4px 9px;
+  background: rgba(255, 255, 255, .88);
+  color: #0f172a;
+  font-size: .64rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .1);
+}
+.card .qty { display: flex; align-items: center; gap: 6px; }
+.card .flag { margin: 0; font-size: .9rem; line-height: 1; }
+.card h3 { margin-top: 2px; color: #0f172a; }
+.card .meta, .card .qty { color: #64748b; }
+.card .price { font-size: 1.12rem; font-weight: 800; letter-spacing: -.02em; }
 @media (max-width: 720px) {
   .card .shot { border-radius: 20px; }
+  .card .marks { top: 7px; left: 7px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .card .shot::after { animation: none; }

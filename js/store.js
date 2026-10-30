@@ -117,14 +117,17 @@ function cardHtml(product) {
   const set = setOf(product.set_id);
   const number = product.number ? ` · ${esc(product.number)}` : "";
   const qty = onOrder(product) ? "Sob encomenda" : Number(product.qty) > 0 ? `${product.qty} un.` : "Esgotado";
+  const condition = productCondition(product);
+  const flag = FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : "";
+  const marks = condition && condition !== "Lacrado" ? `<span class="grade">${esc(condition)}</span>` : "";
   return `
     <article class="card">
       <a href="#/item/${esc(encodeURIComponent(product.id))}">
         ${shot(product)}
         <h3>${esc(product.name)}</h3>
-        <p class="marks">${FLAGS[product.lang] ? `<span class="flag" title="${esc(LANG[product.lang] || product.lang)}">${FLAGS[product.lang]}</span>` : ""}<span class="grade${productCondition(product) === "Lacrado" ? " is-sealed" : ""}">${esc(productCondition(product))}</span></p>
+        ${marks ? `<p class="marks">${marks}</p>` : ""}
         <p class="meta">${esc(set.name)}${number}</p>
-        <p class="qty">${esc(qty)}</p>
+        <p class="qty">${esc(qty)}${flag}</p>
         <p class="price">${esc(priceLabel(product))}</p>
       </a>
       ${buyButton(product, set.name)}
