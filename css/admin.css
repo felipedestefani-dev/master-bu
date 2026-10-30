@@ -281,6 +281,13 @@ button.stat:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(22
 .banner-preview.is-wide { max-width: 760px; aspect-ratio: 5 / 1; }
 .banner-part { margin: 6px 0 -4px; font-size: .95rem; font-weight: 700; }
 .banner-part .muted { font-weight: 500; }
+.banner-group { display: grid; gap: 14px; }
+.banner-group .check { align-self: end; min-height: 44px; }
+.ad-preview { width: 100%; max-width: 480px; overflow: hidden; border-radius: 14px; border: 1px solid var(--line); }
+.ad-preview.is-wide { max-width: 722px; }
+.ad-preview.is-wide .ad-box { width: 960px; zoom: .75; }
+@media (max-width: 820px) { .ad-preview.is-wide .ad-box { zoom: .35; } }
+.banner-row .thumb-box img.is-art { object-fit: contain; }
 
 .shelf-block { display: grid; gap: 12px; margin-bottom: 14px; padding: 16px; background: var(--white); border-radius: 20px; box-shadow: var(--card); }
 .shelf-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

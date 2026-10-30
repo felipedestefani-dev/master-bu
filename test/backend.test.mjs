@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildBanner, buildDesktopBanner, desktopBanners, publicBanners, reorderBanners } from "../lib/banners.mjs";
+import { adHtml, bannerAds, buildAdBanner, buildBanner, buildDesktopBanner, desktopBanners, publicBanners, reorderBanners, shelfDestination } from "../lib/banners.mjs";
 import { cardDraft, cardMatches, displayNumber, findDirectCards, parseCardSearch, searchCardNames, searchTokens, setLabel, suggestFinish, translateRarity } from "../lib/cards.mjs";
 import { artFile, isCardBack, masterPhoto, plainArt, productImage, sanitizeImage, setLogoFallback, setLogoSrc } from "../lib/image.mjs";
 import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial } from "../lib/official-sets.mjs";
@@ -235,11 +235,25 @@ test("banner, visita e whatsapp", () => {
     { id: "__ready", image: "", href: "#/", label: "", scroll: "", sort: 1000 },
   ];
   assert.deepEqual(reorderBanners(publicBanners(rows), "a", 1).map((item) => item.id), ["b", "a"]);
+  const toShelf = buildBanner({ image: "https://exemplo.com/capa.jpg", label: "Delta", dest: "aba:reinado-delta" });
+  assert.deepEqual([toShelf.row.href, toShelf.row.scroll], ["#/", "loja-reinado-delta"]);
+  assert.equal(shelfDestination(toShelf.row), "aba:reinado-delta");
+  assert.equal(buildBanner({ image: "https://exemplo.com/capa.jpg", label: "X", dest: "aba:<x>" }).error, "Escolha uma aba válida.");
   const desktop = buildDesktopBanner("a", "https://exemplo.com/a-pc.jpg");
   assert.deepEqual([desktop.id, desktop.scroll], ["a-pc", "pc"]);
   assert.deepEqual(publicBanners([...rows, desktop]).map((item) => item.id), ["a", "b"]);
   assert.equal(desktopBanners([...rows, desktop]).get("a"), "https://exemplo.com/a-pc.jpg");
   assert.equal(buildDesktopBanner("a", ""), null);
+  const ad = buildAdBanner("a", { tag: "PRÉ-VENDA", title: "Garanta o seu", highlight: "antes|de todos", cta: "Reservar", theme: "delta", live: true });
+  assert.deepEqual([ad.row.id, ad.row.image, ad.row.scroll], ["a-anim", "", "anim:delta:live"]);
+  assert.deepEqual(publicBanners([...rows, ad.row]).map((item) => item.id), ["a", "b"]);
+  const saved = bannerAds([...rows, ad.row]).get("a");
+  assert.deepEqual([saved.theme, saved.live, saved.highlight, saved.sub], ["delta", true, "antes/de todos", ""]);
+  assert.equal(buildAdBanner("a", { title: "" }).error, "Escreva o título do banner animado.");
+  assert.equal(buildAdBanner("a", { title: "x".repeat(120), cta: "y" }).ok, false);
+  assert.equal(buildAdBanner("a", { title: "Oi", theme: "rosa" }).row.scroll, "anim:roxo");
+  assert.doesNotMatch(adHtml({ ...saved, title: "<b>" }, "/assets/x.png"), /<b>|is-card/);
+  assert.match(adHtml(saved, "data:image/jpeg;base64,AA"), /is-card[\s\S]*AO VIVO/);
   const now = new Date("2026-03-15T15:00:00Z");
   assert.deepEqual(visitBounds("prev", { now }), { from: "2026-02-01", to: "2026-02-28" });
   const summary = summarizeVisits([

@@ -270,9 +270,16 @@ h2 { font-size: 1.35rem; }
   opacity: 0;
   z-index: 0;
   pointer-events: none;
-  transition: opacity .8s ease;
 }
 .hero-rotator a.is-on { position: relative; opacity: 1; z-index: 1; pointer-events: auto; }
+.hero-rotator a.is-in { animation: hero-in .75s cubic-bezier(.65, 0, .35, 1) both; }
+.hero-rotator a.is-out { opacity: 1; animation: hero-out .75s cubic-bezier(.65, 0, .35, 1) both; }
+.hero-rotator.is-back a.is-in { animation-name: hero-in-back; }
+.hero-rotator.is-back a.is-out { animation-name: hero-out-back; }
+@keyframes hero-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes hero-out { from { transform: none; } to { transform: translateX(-100%); } }
+@keyframes hero-in-back { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes hero-out-back { from { transform: none; } to { transform: translateX(100%); } }
 .hero-rotator picture { display: block; }
 .hero-rotator img {
   width: 100%;
@@ -705,6 +712,7 @@ main > .home-tabs {
 .home-tabs img { width: 16px; height: 16px; }
 .home-tabs a:hover { color: var(--blue); transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(29, 78, 216, .3), 0 8px 18px rgba(22, 58, 158, .12); }
 .home-tabs + .shelf { margin-top: 26px; }
+.shelf { scroll-margin-top: 172px; }
 .card {
   padding: 10px;
   border: 0;

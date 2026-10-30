@@ -4,7 +4,7 @@ import { client } from "/js/supabase.js";
 import { isCardBack, masterPhoto, productImage } from "/lib/image.mjs?v=4";
 import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts, productCondition } from "/lib/products.mjs?v=3";
-import { desktopBanners, publicBanners } from "/lib/banners.mjs?v=2";
+import { adHtml, bannerAds, desktopBanners, publicBanners } from "/lib/banners.mjs?v=4";
 import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
@@ -168,6 +168,7 @@ function bannerHtml() {
   const slides = publicBanners(banners);
   if (!slides.length) return "";
   const wide = desktopBanners(banners);
+  const ads = bannerAds(banners);
   return `
     <div class="hero">
       <div class="hero-rotator">
@@ -176,9 +177,11 @@ function bannerHtml() {
           const external = href.startsWith("https://");
           const scroll = item.scroll ? ` data-scroll="${esc(item.scroll)}"` : "";
           const target = external ? ` target="_blank" rel="noopener noreferrer"` : "";
+          const ad = ads.get(item.id);
           const desktop = wide.get(item.id);
           const source = desktop ? `<source media="${DESKTOP_HERO}" srcset="${esc(desktop)}" />` : "";
-          return `<a class="${index === 0 ? "is-on" : ""}" href="${esc(href)}"${target}${scroll}><picture>${source}<img src="${esc(item.image)}" alt="${esc(item.label || "Banner")}" /></picture></a>`;
+          const body = ad ? adHtml(ad, item.image) : `<picture>${source}<img src="${esc(item.image)}" alt="${esc(item.label || "Banner")}" /></picture>`;
+          return `<a class="${index === 0 ? "is-on" : ""}" href="${esc(href)}"${target}${scroll}${ad ? ` aria-label="${esc(item.label || "Banner")}"` : ""}>${body}</a>`;
         }).join("")}
       </div>
       ${slides.length > 1 ? `<div class="hero-dots">${slides.map((_, index) => `<button type="button" class="${index === 0 ? "is-on" : ""}" aria-label="Banner ${index + 1}"></button>`).join("")}</div>` : ""}
@@ -445,9 +448,17 @@ function spinHero() {
   const dots = [...main.querySelectorAll(".hero-dots button")];
   if (slides.length < 2) return;
   let index = 0;
-  const show = (next) => {
+  let settle = 0;
+  const show = (next, forward = true) => {
+    if (next === index) return;
+    clearTimeout(settle);
+    slides.forEach((slide) => slide.classList.remove("is-in", "is-out"));
+    box.classList.toggle("is-back", !forward);
+    slides[index].classList.remove("is-on");
+    slides[index].classList.add("is-out");
+    slides[next].classList.add("is-on", "is-in");
+    settle = setTimeout(() => slides.forEach((slide) => slide.classList.remove("is-in", "is-out")), 800);
     index = next;
-    slides.forEach((slide, i) => slide.classList.toggle("is-on", i === index));
     dots.forEach((dot, i) => {
       dot.classList.toggle("is-on", i === index);
       if (i !== index) return;
@@ -456,8 +467,12 @@ function spinHero() {
       dot.classList.add("is-on");
     });
   };
-  heroTimer = setInterval(() => show((index + 1) % slides.length), 5000);
-  dots.forEach((dot, i) => { dot.onclick = () => show(i); });
+  const start = () => {
+    clearInterval(heroTimer);
+    heroTimer = setInterval(() => show((index + 1) % slides.length), 5000);
+  };
+  start();
+  dots.forEach((dot, i) => { dot.onclick = () => { show(i, i > index); start(); }; });
 }
 
 function catalogSets() {
