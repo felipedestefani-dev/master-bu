@@ -553,6 +553,40 @@ async function loadShop() {
   }
   render();
   trackVisit();
+  await firstScreen();
+  closeSplash();
+}
+
+const SPLASH_MIN = 700;
+const SPLASH_MAX = 8000;
+const splashStart = performance.now();
+
+function firstScreen() {
+  const loaded = () => [...document.querySelectorAll("main img, .top img")]
+    .every((img) => img.hidden || img.complete || img.getBoundingClientRect().top >= innerHeight);
+  return new Promise((resolve) => {
+    const check = () => {
+      const elapsed = performance.now() - splashStart;
+      if (elapsed >= SPLASH_MAX || (elapsed >= SPLASH_MIN && loaded())) resolve();
+      else setTimeout(check, 100);
+    };
+    (document.fonts?.ready || Promise.resolve()).then(check, check);
+  });
+}
+
+function closeSplash() {
+  const splash = document.getElementById("splash");
+  if (!splash) return;
+  document.body.classList.remove("is-loading");
+  splash.classList.add("is-done");
+  const slide = main.querySelector(".hero-rotator a.is-on");
+  if (slide) {
+    slide.classList.remove("is-on");
+    void slide.offsetWidth;
+    slide.classList.add("is-on");
+  }
+  splash.addEventListener("transitionend", () => splash.remove(), { once: true });
+  setTimeout(() => splash.remove(), 800);
 }
 
 function trackVisit() {

@@ -9,10 +9,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="/css/store.css?v=65" />
+  <link rel="preload" href="/assets/logo.png" as="image" />
+  <link rel="stylesheet" href="/css/store.css?v=66" />
   <link rel="stylesheet" href="/css/banner-ad.css?v=2" />
 </head>
-<body>
+<body class="is-loading">
+  <div id="splash" class="splash" role="status">
+    <div class="splash-mark">
+      <span class="splash-ring"></span>
+      <img src="/assets/logo.png" alt="" width="120" height="103" />
+    </div>
+    <div class="splash-bar"><span></span></div>
+    <p class="sr">Carregando a vitrine…</p>
+  </div>
   <header class="top">
     <a class="logo" href="#/"><img src="/assets/logo.png" alt="Master Bu" width="64" height="52" /></a>
     <form class="find" role="search">
@@ -67,6 +76,6 @@
     document.addEventListener("touchmove", (event) => { if (event.touches.length > 1) event.preventDefault(); }, { passive: false });
     document.addEventListener("wheel", (event) => { if (event.ctrlKey) event.preventDefault(); }, { passive: false });
   </script>
-  <script type="module" src="/js/store.js?v=48"></script>
+  <script type="module" src="/js/store.js?v=49"></script>
 </body>
 </html>
