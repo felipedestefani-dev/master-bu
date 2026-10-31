@@ -18,7 +18,7 @@
 }
 
 * { box-sizing: border-box; }
-html { touch-action: manipulation; }
+html { touch-action: pan-x pan-y; }
 body { margin: 0; overflow-x: clip; background: #f3f4f6; }
 a { color: var(--blue); text-decoration: none; }
 a:hover { color: var(--blue-dark); }
@@ -666,6 +666,9 @@ h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; }
   backdrop-filter: saturate(180%) blur(24px);
   border-radius: 14px;
 }
+@media (hover: none) {
+  .nav, .set-menu { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
 .meta,
 .qty { color: var(--blue); }
 .grade { border: 0; border-radius: 999px; background: #e8efff; color: var(--blue); }
@@ -736,26 +739,27 @@ main > .home-tabs {
   top: 0;
   bottom: 0;
   left: 0;
-  width: 100%;
+  width: 250%;
   background: linear-gradient(115deg, transparent 20%, rgba(255, 0, 128, .22) 36%, rgba(255, 220, 0, .22) 44%, rgba(0, 255, 170, .22) 52%, rgba(0, 140, 255, .22) 60%, transparent 76%);
-  background-size: 250% 100%;
   mix-blend-mode: color-dodge;
   opacity: .9;
-  transform: none;
+  transform: translateX(-60%);
   animation: card-holo 3.2s ease-in-out infinite;
+  will-change: transform;
 }
-@keyframes card-holo { 0% { background-position: 100% 0; } 100% { background-position: -50% 0; } }
+@keyframes card-holo { from { transform: translateX(-60%); } to { transform: translateX(30%); } }
+@media (hover: none) {
+  .card .shot::after { mix-blend-mode: normal; opacity: .55; }
+}
 .card { position: relative; }
 .card .marks { position: absolute; z-index: 2; top: 10px; left: 10px; margin: 0; gap: 4px; }
 .card .grade {
   padding: 4px 9px;
-  background: rgba(255, 255, 255, .88);
+  background: rgba(255, 255, 255, .95);
   color: #0f172a;
   font-size: .64rem;
   letter-spacing: .06em;
   text-transform: uppercase;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   box-shadow: 0 2px 8px rgba(15, 23, 42, .1);
 }
 .card h3 { margin-top: 2px; color: #0f172a; }
@@ -830,6 +834,21 @@ body.is-loading { overflow: hidden; }
   border-radius: inherit;
   background: linear-gradient(90deg, var(--red), var(--blue));
   animation: splash-slide 1.2s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+.splash-credit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  margin: 0;
+  color: var(--muted);
+  font-size: .9rem;
+  text-align: center;
+}
+.splash-credit strong {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .splash.is-done .splash-mark { transform: scale(1.12); transition: transform .45s ease; }
 @keyframes splash-spin { to { transform: rotate(1turn); } }

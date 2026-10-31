@@ -205,8 +205,8 @@
 .is-on .ad .ad-logo { animation: ad-spin .8s .6s cubic-bezier(.34, 1.56, .64, 1) both; }
 .is-on .ad .ad-cta { animation: ad-pop .6s .9s cubic-bezier(.34, 1.56, .64, 1) both; }
 .is-on .ad .ad-cta::before { animation: ad-shine 2.6s 1.6s ease-in-out infinite; }
-.ad .ad-pic { animation: ad-float 3s ease-in-out infinite alternate; }
-.ad-live::before { animation: ad-blink 1.2s ease-in-out infinite; }
+.is-on .ad .ad-pic { animation: ad-float 3s ease-in-out infinite alternate; }
+.is-on .ad-live::before { animation: ad-blink 1.2s ease-in-out infinite; }
 
 @keyframes ad-grow { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
 @keyframes ad-side { from { opacity: 0; transform: translateX(130%) rotate(16deg); } to { opacity: 1; transform: none; } }

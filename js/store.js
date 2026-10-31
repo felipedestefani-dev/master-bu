@@ -101,12 +101,12 @@ function shot(product) {
     const own = saved && saved !== logo && !/\/logo\.png(?:$|\?)/.test(saved) && !saved.endsWith("me06-logo.png");
     if (own) return `<div class="shot"><img data-card class="pack" src="${esc(saved)}" alt="${esc(product.name)}" loading="lazy" /></div>`;
     if (!logo) return `<div class="shot"></div>`;
-    return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" /></div>`;
+    return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" loading="lazy" decoding="async" /></div>`;
   }
   const src = productImage(product);
   if (!src) {
     if (!logo) return `<div class="shot"></div>`;
-    return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" /></div>`;
+    return `<div class="shot"><img data-set-logo alt="${esc(product.name)}" src="${esc(logo)}" loading="lazy" decoding="async" /></div>`;
   }
   const fallback = logo ? ` data-fallback="${esc(logo)}"` : "";
   const pack = displayKind(product) === "single" ? "" : ` class="pack${src.includes("sealed-me5-unit") ? " tight" : ""}"`;
@@ -280,7 +280,7 @@ function setsPage() {
     const count = products.filter((product) => product.set_id === set.id).length;
     return `
       <a class="set-card" href="#/set/${esc(encodeURIComponent(set.id))}">
-        <img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" />
+        <img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" loading="lazy" decoding="async" />
         <span><strong>${esc(set.name)}</strong><span>${esc(set.code)}${count ? ` · ${count}` : ""}</span></span>
       </a>`;
   }).join("");
@@ -506,7 +506,7 @@ function fillSets() {
   setSelect.innerHTML = `<option value="">Todas as coleções</option>${pickerSets.map((set) => `<option value="${esc(set.id)}">${esc(set.name)}</option>`).join("")}`;
   if ([...setSelect.options].some((option) => option.value === current)) setSelect.value = current;
   const menu = document.getElementById("colecao-menu");
-  menu.innerHTML = `<button type="button" role="option" data-set=""><span>Todas as coleções</span></button>${pickerSets.map((set) => `<button type="button" role="option" data-set="${esc(set.id)}"><img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" /><span>${esc(set.name)}</span></button>`).join("")}`;
+  menu.innerHTML = `<button type="button" role="option" data-set=""><span>Todas as coleções</span></button>${pickerSets.map((set) => `<button type="button" role="option" data-set="${esc(set.id)}"><img data-set-logo alt="" src="${esc(setLogoSrc(set.id))}" loading="lazy" decoding="async" width="56" height="28" /><span>${esc(set.name)}</span></button>`).join("")}`;
   bindSetLogos(menu);
   paintFilterLogo();
 }
@@ -555,7 +555,7 @@ async function loadShop() {
     loadCatalog().then((list) => {
       catalog = Array.isArray(list) ? list : [];
       fillSets();
-      render();
+      if (chosenSetId()) render();
     }).catch((error) => console.error(error));
   } catch (error) {
     failed = true;
