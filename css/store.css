@@ -748,9 +748,6 @@ main > .home-tabs {
   will-change: transform;
 }
 @keyframes card-holo { from { transform: translateX(-60%); } to { transform: translateX(30%); } }
-@media (hover: none) {
-  .card .shot::after { mix-blend-mode: normal; opacity: .55; }
-}
 .card { position: relative; }
 .card .marks { position: absolute; z-index: 2; top: 10px; left: 10px; margin: 0; gap: 4px; }
 .card .grade {
