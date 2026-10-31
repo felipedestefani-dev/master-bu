@@ -3,7 +3,7 @@ import { BANNER_ART_SIDE, BANNER_MAX_WIDTH, BANNER_PC_MAX_WIDTH, BANNER_QUALITY,
 import { cardDraft, findDirectCards, parseCardSearch, printingsOf, searchCardNames } from "/lib/cards.mjs";
 import { sealedDraft } from "/lib/sealed-draft.mjs?v=2";
 import { LABEL_ORDER } from "/lib/sealed-match.mjs?v=4";
-import { AD_THEMES, BANNER_DESTINATIONS, SHELF_DEST, adBannerId, adHtml, bannerAds, buildAdBanner, buildBanner, buildDesktopBanner, desktopBannerId, desktopBanners, publicBanners, reorderBanners, shelfDestination } from "/lib/banners.mjs?v=4";
+import { AD_THEMES, BANNER_DESTINATIONS, SHELF_DEST, adBannerId, adHtml, bannerAds, buildAdBanner, buildBanner, buildDesktopBanner, desktopBannerId, desktopBanners, publicBanners, reorderBanners, shelfDestination } from "/lib/banners.mjs?v=5";
 import { catalogShelves, placeProduct, shelfKey, shelvesFromProducts, shelvesToBanners } from "/lib/shelves.mjs?v=2";
 import { buildSet, searchSets, setDeleteError, sortSets } from "/lib/sets.mjs";
 import { SET_PT } from "/lib/official-sets.mjs";

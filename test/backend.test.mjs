@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { adHtml, bannerAds, buildAdBanner, buildBanner, buildDesktopBanner, desktopBanners, publicBanners, reorderBanners, shelfDestination } from "../lib/banners.mjs";
+import { adHtml, bannerAds, bannerArt, buildAdBanner, buildBanner, buildDesktopBanner, desktopBanners, publicBanners, reorderBanners, shelfDestination } from "../lib/banners.mjs";
 import { cardDraft, cardMatches, displayNumber, findDirectCards, parseCardSearch, searchCardNames, searchTokens, setLabel, suggestFinish, translateRarity } from "../lib/cards.mjs";
 import { artFile, isCardBack, masterPhoto, plainArt, productImage, sanitizeImage, setLogoFallback, setLogoSrc } from "../lib/image.mjs";
 import { fetchOfficialSets, formatRelease, matchOfficial, storeSetFromOfficial } from "../lib/official-sets.mjs";
@@ -252,8 +252,13 @@ test("banner, visita e whatsapp", () => {
   assert.equal(buildAdBanner("a", { title: "" }).error, "Escreva o título do banner animado.");
   assert.equal(buildAdBanner("a", { title: "x".repeat(120), cta: "y" }).ok, false);
   assert.equal(buildAdBanner("a", { title: "Oi", theme: "rosa" }).row.scroll, "anim:roxo");
+  assert.equal(buildAdBanner("a", { title: "Oi", theme: "verde" }).row.scroll, "anim:verde");
   assert.doesNotMatch(adHtml({ ...saved, title: "<b>" }, "/assets/x.png"), /<b>|is-card/);
   assert.match(adHtml(saved, "data:image/jpeg;base64,AA"), /is-card[\s\S]*AO VIVO/);
+  const prevenda = `data:image/jpeg;base64,EHfnTqYTsXbOS9cIzCWDOl295x90JJwVK6hzg4+YAzXreIYu`;
+  assert.equal(bannerArt(prevenda), "/assets/banners/prevenda.png");
+  assert.match(adHtml(saved, prevenda), /ad-verde[\s\S]*\/assets\/banners\/prevenda\.png/);
+  assert.doesNotMatch(adHtml(saved, prevenda), /is-card/);
   const now = new Date("2026-03-15T15:00:00Z");
   assert.deepEqual(visitBounds("prev", { now }), { from: "2026-02-01", to: "2026-02-28" });
   const summary = summarizeVisits([
