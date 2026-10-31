@@ -845,11 +845,13 @@ body.is-loading { overflow: hidden; }
   font-size: .9rem;
   text-align: center;
 }
-.splash-credit strong {
+.splash-credit a {
   color: var(--ink);
+  font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.splash-credit a:hover { color: var(--blue); }
 .splash.is-done .splash-mark { transform: scale(1.12); transition: transform .45s ease; }
 @keyframes splash-spin { to { transform: rotate(1turn); } }
 @keyframes splash-bob { from { transform: translateY(4px) scale(.97); } to { transform: translateY(-6px) scale(1.03); } }
