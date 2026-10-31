@@ -218,3 +218,17 @@ grant insert, update, delete on public.sets, public.products, public.banners, pu
 grant insert on public.visits to anon, authenticated;
 grant select on public.visits to authenticated;
 grant usage, select on sequence public.visits_id_seq to anon, authenticated;
+
+-- Realtime: a loja ouve estas tabelas e se atualiza sozinha.
+do $$
+declare t text;
+begin
+  foreach t in array array['sets', 'products', 'banners', 'tabs'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;

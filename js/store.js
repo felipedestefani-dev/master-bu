@@ -524,22 +524,33 @@ async function loadCatalog() {
   return list;
 }
 
+let sb = null;
+let shopSignature = "";
+
+async function fetchShop() {
+  sb ||= await client();
+  const bannerQuery = sb.from("banners").select("id,image,href,label,scroll,sort").order("sort");
+  const [setRes, productRes, bannerRes, tabRes] = await Promise.all([
+    sb.from("sets").select("id,name,code,sort").order("sort"),
+    sb.from("products").select("id,kind,name,set_id,number,rarity,condition,lang,finish,qty,price,image").order("name"),
+    matchMedia(DESKTOP_HERO).matches ? bannerQuery : bannerQuery.neq("scroll", "pc"),
+    sb.from("tabs").select("id,label,href,icon,sort").order("sort"),
+  ]);
+  if (setRes.error || productRes.error || bannerRes.error) throw setRes.error || productRes.error || bannerRes.error;
+  const signature = JSON.stringify([setRes.data, productRes.data, bannerRes.data, tabRes.error ? null : tabRes.data]);
+  if (signature === shopSignature) return false;
+  shopSignature = signature;
+  if (!tabRes.error && tabRes.data?.length) siteTabs = tabRes.data;
+  sets = setRes.data || [];
+  products = (productRes.data || []).filter(forSale);
+  banners = bannerRes.data || [];
+  failed = false;
+  return true;
+}
+
 async function loadShop() {
   try {
-    const sb = await client();
-    const bannerQuery = sb.from("banners").select("id,image,href,label,scroll,sort").order("sort");
-    const [setRes, productRes, bannerRes, tabRes] = await Promise.all([
-      sb.from("sets").select("id,name,code,sort").order("sort"),
-      sb.from("products").select("id,kind,name,set_id,number,rarity,condition,lang,finish,qty,price,image").order("name"),
-      matchMedia(DESKTOP_HERO).matches ? bannerQuery : bannerQuery.neq("scroll", "pc"),
-      sb.from("tabs").select("id,label,href,icon,sort").order("sort"),
-    ]);
-    if (!tabRes.error && tabRes.data?.length) siteTabs = tabRes.data;
-    if (setRes.error || productRes.error || bannerRes.error) throw setRes.error || productRes.error || bannerRes.error;
-    sets = setRes.data || [];
-    products = (productRes.data || []).filter(forSale);
-    banners = bannerRes.data || [];
-    failed = false;
+    await fetchShop();
     fillSets();
     loadCatalog().then((list) => {
       catalog = Array.isArray(list) ? list : [];
@@ -555,6 +566,55 @@ async function loadShop() {
   trackVisit();
   await firstScreen();
   closeSplash();
+  watchShop();
+}
+
+const LIVE_TABLES = ["products", "banners", "sets", "tabs"];
+let liveTimer = 0;
+let liveBusy = false;
+
+function refreshSoon(delay = 400) {
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(refreshShop, delay);
+}
+
+async function refreshShop() {
+  if (liveBusy) { refreshSoon(); return; }
+  liveBusy = true;
+  try {
+    if (await fetchShop()) {
+      fillSets();
+      rerender();
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    liveBusy = false;
+  }
+}
+
+function rerender() {
+  const rails = [...main.querySelectorAll(".shelf")].map((section) => [section.id, section.querySelector(".shelf-scroll")?.scrollLeft || 0]);
+  const top = scrollY;
+  render();
+  for (const [id, left] of rails) {
+    const row = id && document.getElementById(id)?.querySelector(".shelf-scroll");
+    if (row) row.scrollLeft = left;
+  }
+  scrollTo({ top, behavior: "instant" });
+}
+
+function watchShop() {
+  if (!sb) return;
+  const channel = sb.channel("vitrine");
+  for (const table of LIVE_TABLES) {
+    channel.on("postgres_changes", { event: "*", schema: "public", table }, () => refreshSoon());
+  }
+  channel.subscribe((status) => {
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") console.warn("Atualização ao vivo indisponível:", status);
+  });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshSoon(0); });
+  addEventListener("online", () => refreshSoon(0));
 }
 
 const SPLASH_MIN = 700;
