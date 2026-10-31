@@ -4,7 +4,7 @@ import { client } from "/js/supabase.js";
 import { isCardBack, masterPhoto, productImage } from "/lib/image.mjs?v=4";
 import { bindSetLogos, setLogoSrc, showSetLogo } from "/js/set-logo.js";
 import { displayKind, filterProducts, productCondition } from "/lib/products.mjs?v=3";
-import { adHtml, bannerAds, desktopBanners, publicBanners } from "/lib/banners.mjs?v=5";
+import { adHtml, bannerAds, desktopBanners, publicBanners } from "/lib/banners.mjs?v=6";
 import { DEFAULT_TABS, publicTabs } from "/lib/tabs.mjs";
 import { buyLabel, forSale, money, onOrder, priceLabel, whatsappUrl } from "/lib/shop.mjs?v=2";
 import { buildVisit, saoPauloDay } from "/lib/visits.mjs";
