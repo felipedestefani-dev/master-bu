@@ -448,7 +448,11 @@ function spinHero() {
   if (!box) return;
   const slides = [...box.querySelectorAll("a")];
   const dots = [...main.querySelectorAll(".hero-dots button")];
-  if (slides.length < 2) return;
+  const restart = (el) => { el.classList.remove("is-on"); void el.offsetWidth; el.classList.add("is-on"); };
+  box.classList.remove("is-back");
+  slides.forEach((slide, i) => { slide.classList.remove("is-in", "is-out", "is-on"); if (i === 0) restart(slide); });
+  dots.forEach((dot, i) => { dot.classList.remove("is-on"); if (i === 0) restart(dot); });
+  if (slides.length < 2 || document.body.classList.contains("is-loading")) return;
   let index = 0;
   let settle = 0;
   const show = (next, forward = true) => {
@@ -623,7 +627,7 @@ const splashStart = performance.now();
 
 function firstScreen() {
   const loaded = () => [...document.querySelectorAll("main img, .top img")]
-    .every((img) => img.hidden || img.complete || img.getBoundingClientRect().top >= innerHeight);
+    .every((img) => img.hidden || img.complete || !img.getClientRects().length || img.getBoundingClientRect().top >= innerHeight);
   return new Promise((resolve) => {
     const check = () => {
       const elapsed = performance.now() - splashStart;
@@ -639,12 +643,7 @@ function closeSplash() {
   if (!splash) return;
   document.body.classList.remove("is-loading");
   splash.classList.add("is-done");
-  const slide = main.querySelector(".hero-rotator a.is-on");
-  if (slide) {
-    slide.classList.remove("is-on");
-    void slide.offsetWidth;
-    slide.classList.add("is-on");
-  }
+  spinHero();
   splash.addEventListener("transitionend", () => splash.remove(), { once: true });
   setTimeout(() => splash.remove(), 800);
 }
